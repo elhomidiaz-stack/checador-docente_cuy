@@ -2,14 +2,12 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#172554">
   <title>Acceso docente | CUY</title>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -33,10 +31,7 @@
       text-align: center;
     }
 
-    h1 {
-      margin: 0 0 10px;
-      font-size: 25px;
-    }
+    h1 { font-size: 25px; }
 
     p {
       color: #cbd5e1;
@@ -87,17 +82,10 @@
 </head>
 
 <body>
-
   <main class="contenedor">
     <h1>Acceso docente</h1>
-
-    <p>
-      Colegio Universitario de Yahualica
-    </p>
-
-    <p>
-      Ingresa tu correo institucional para autorizar este dispositivo.
-    </p>
+    <p>Colegio Universitario de Yahualica</p>
+    <p>Ingresa tu correo institucional para autorizar este dispositivo.</p>
 
     <input
       type="email"
@@ -106,13 +94,11 @@
       autocomplete="email"
     >
 
-    <button id="btnAcceso" onclick="enviarAcceso()">
+    <button id="btnAcceso">
       Enviar enlace de acceso
     </button>
 
-    <div id="mensaje">
-      Esperando información...
-    </div>
+    <div id="mensaje">Preparando acceso...</div>
 
     <div class="nota">
       Sistema de registro de llegada docente CUY
@@ -120,10 +106,8 @@
   </main>
 
   <script type="module">
-
-    import {
-      initializeApp
-    } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
+    import { initializeApp } from
+      "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 
     import {
       getAuth,
@@ -133,10 +117,8 @@
       isSignInWithEmailLink,
       signInWithEmailLink,
       onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
-
-
-    // CONFIGURACIÓN FIREBASE
+    } from
+      "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAMLtZyqiUkME1HwiGSHOFF7wJ-UpmBbJI",
@@ -147,9 +129,6 @@
       appId: "1:15127097699:web:308aae0b17e363ad5b2356",
       measurementId: "G-BP8YEFQDJE"
     };
-
-
-    // CONFIGURACIÓN DEL SISTEMA
 
     const URL_APPS_SCRIPT =
       "https://script.google.com/macros/s/AKfycbyXlKZuyW8NkhM8Jwut84LDVXCQIsx-8Fa0wZ8Jkcdo57s3ZqAnD9Q0IOXgJvw9AKXY/exec";
@@ -163,61 +142,48 @@
     const CLAVE_DISPOSITIVO = "checador_dispositivo_v1";
     const CLAVE_CORREO = "checador_correo_acceso";
 
-
-    // INICIALIZAR FIREBASE
-
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
-
-    await setPersistence(auth, browserLocalPersistence);
-
-
-    // ELEMENTOS
 
     const campoCorreo = document.getElementById("correo");
     const boton = document.getElementById("btnAcceso");
     const mensaje = document.getElementById("mensaje");
 
+    await setPersistence(auth, browserLocalPersistence);
 
     function mostrar(texto) {
       mensaje.textContent = texto;
     }
 
-
     function bloquear(estado) {
       boton.disabled = estado;
     }
-
 
     function generarId() {
       return crypto.randomUUID();
     }
 
-
     function generarToken() {
       return crypto.randomUUID() + crypto.randomUUID();
     }
 
-
     function tipoDispositivo() {
       const agente = navigator.userAgent;
 
-      if (/iPhone|iPad|iPod/i.test(agente)) {
-        return "iPhone";
-      }
-
-      if (/Android/i.test(agente)) {
-        return "Android";
-      }
+      if (/iPhone|iPad|iPod/i.test(agente)) return "iPhone";
+      if (/Android/i.test(agente)) return "Android";
 
       return "Otro dispositivo";
     }
 
+    function crearSolicitud() {
+      return generarId().replace(/-/g, "") +
+             generarId().replace(/-/g, "");
+    }
 
     function obtenerDispositivo() {
       try {
         const datos = localStorage.getItem(CLAVE_DISPOSITIVO);
-
         if (!datos) return null;
 
         const dispositivo = JSON.parse(datos);
@@ -231,25 +197,13 @@
         }
 
         return null;
-
       } catch (error) {
         return null;
       }
     }
 
-
-    function crearSolicitud() {
-      return generarId().replace(/-/g, "") +
-             generarId().replace(/-/g, "");
-    }
-
-
-    // CONSULTAR RESULTADOS DEL SERVIDOR
-
     function consultarServidor(accion, solicitud) {
-
       return new Promise((resolve, reject) => {
-
         const callback =
           "respuesta_" + Date.now() + "_" +
           Math.floor(Math.random() * 100000);
@@ -285,16 +239,10 @@
         };
 
         document.body.appendChild(script);
-
       });
-
     }
 
-
-    // ENVIAR INFORMACIÓN AL SERVIDOR
-
     async function enviarPOST(datos) {
-
       await fetch(URL_APPS_SCRIPT, {
         method: "POST",
         mode: "no-cors",
@@ -303,22 +251,17 @@
         },
         body: new URLSearchParams(datos)
       });
-
     }
 
-
-    // ESPERAR RESPUESTA DEL SERVIDOR
-
     async function esperarResultado(accion, solicitud) {
-
       for (let intento = 0; intento < 12; intento++) {
-
         await new Promise(resolve => setTimeout(resolve, 1500));
 
-        const respuesta = await consultarServidor(
-          accion,
-          solicitud
-        );
+        const respuesta = await consultarServidor(accion, solicitud);
+
+        if (respuesta && respuesta.pendiente === true) {
+          continue;
+        }
 
         if (respuesta && respuesta.ok === true) {
           return respuesta;
@@ -326,25 +269,17 @@
 
         if (respuesta && respuesta.ok === false) {
           throw new Error(
-            respuesta.mensaje ||
-            respuesta.error ||
-            "El servidor rechazó la solicitud."
+            respuesta.mensaje || "El servidor rechazó la solicitud."
           );
         }
-
       }
 
       throw new Error(
         "El servidor no respondió a tiempo. Intenta nuevamente."
       );
-
     }
 
-
-    // VALIDAR DISPOSITIVO EXISTENTE
-
     async function validarDispositivo(usuario, dispositivo) {
-
       mostrar("Verificando autorización del dispositivo...");
       bloquear(true);
 
@@ -364,7 +299,7 @@
         solicitud
       );
 
-      if (resultado.ok) {
+      if (resultado.autorizado === true) {
         mostrar("Dispositivo autorizado. Entrando al checador...");
         window.location.replace(URL_REGISTRO);
         return;
@@ -373,14 +308,9 @@
       throw new Error(
         resultado.mensaje || "Este dispositivo no está autorizado."
       );
-
     }
 
-
-    // VINCULAR NUEVO DISPOSITIVO
-
     async function vincularDispositivo(usuario) {
-
       mostrar("Registrando este dispositivo...");
       bloquear(true);
 
@@ -406,10 +336,9 @@
         solicitud
       );
 
-      if (!resultado.ok) {
+      if (resultado.autorizado !== true) {
         throw new Error(
-          resultado.mensaje ||
-          "No fue posible autorizar este dispositivo."
+          resultado.mensaje || "No fue posible autorizar este dispositivo."
         );
       }
 
@@ -421,20 +350,13 @@
       );
 
       mostrar("Dispositivo autorizado. Entrando al checador...");
-
       window.location.replace(URL_REGISTRO);
-
     }
 
-
-    // PROCESAR USUARIO AUTENTICADO
-
     async function procesarUsuario(usuario) {
+      if (!usuario) return;
 
       try {
-
-        if (!usuario) return;
-
         mostrar("Verificando tu cuenta institucional...");
 
         const dispositivo = obtenerDispositivo();
@@ -444,27 +366,17 @@
         } else {
           await vincularDispositivo(usuario);
         }
-
       } catch (error) {
-
         bloquear(false);
-
         mostrar(error.message || "Ocurrió un error durante el acceso.");
-
       }
-
     }
 
-
-    // ENVIAR ENLACE DE ACCESO
-
-    window.enviarAcceso = async function() {
-
+    boton.addEventListener("click", async () => {
       try {
-
         const correo = campoCorreo.value.trim().toLowerCase();
 
-        if (!correo || !correo.includes("@")) {
+        if (!correo || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
           mostrar("Escribe un correo electrónico válido.");
           return;
         }
@@ -480,50 +392,37 @@
         });
 
         mostrar(
-          "Se envió un enlace a tu correo. Ábrelo desde este mismo dispositivo para completar el acceso."
+          "Enlace enviado. Abre el correo y entra desde este mismo dispositivo."
         );
 
         bloquear(false);
 
       } catch (error) {
-
         bloquear(false);
-
-        mostrar(
-          "No se pudo enviar el enlace: " + error.message
-        );
-
+        mostrar("No se pudo enviar el enlace: " + error.message);
       }
-
-    };
-
-
-    // COMPLETAR INICIO DE SESIÓN CON ENLACE
+    });
 
     async function completarAcceso() {
-
       if (!isSignInWithEmailLink(auth, window.location.href)) {
-        return false;
+        return;
       }
 
       let correo = localStorage.getItem(CLAVE_CORREO);
 
       if (!correo) {
-        correo = prompt(
-          "Confirma el correo al que enviamos el enlace:"
-        );
+        correo = prompt("Confirma el correo al que enviamos el enlace:");
       }
 
       if (!correo) {
-        mostrar("Es necesario confirmar el correo para continuar.");
-        return true;
+        mostrar("Necesitas confirmar el correo para continuar.");
+        return;
       }
 
       bloquear(true);
       mostrar("Completando inicio de sesión...");
 
       try {
-
         await signInWithEmailLink(
           auth,
           correo.trim().toLowerCase(),
@@ -539,35 +438,20 @@
         );
 
       } catch (error) {
-
         bloquear(false);
-
-        mostrar(
-          "No se pudo completar el acceso: " + error.message
-        );
-
+        mostrar("No se pudo completar el acceso: " + error.message);
       }
-
-      return true;
-
     }
 
-
-    // INICIO
-
-    const enlaceProcesado = await completarAcceso();
+    await completarAcceso();
 
     onAuthStateChanged(auth, async usuario => {
-
       if (usuario) {
         await procesarUsuario(usuario);
-      } else if (!enlaceProcesado) {
+      } else if (!isSignInWithEmailLink(auth, window.location.href)) {
         mostrar("Escribe tu correo institucional para comenzar.");
       }
-
     });
-
   </script>
-
 </body>
 </html>
