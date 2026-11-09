@@ -1,87 +1,573 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#172554">
+  <title>Acceso docente | CUY</title>
 
-const CACHE_VERSION = "checador-cuy-v3";
+  <style>
+    * {
+      box-sizing: border-box;
+    }
 
-const ARCHIVOS = [
-  "./",
-  "./index.html",
-  "./manifest.json"
-];
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: Arial, sans-serif;
+    }
 
-self.addEventListener("install", event => {
-  event.waitUntil(
-    caches.open(CACHE_VERSION)
-      .then(cache => cache.addAll(ARCHIVOS))
-      .then(() => self.skipWaiting())
-  );
-});
+    .contenedor {
+      width: 100%;
+      max-width: 430px;
+      padding: 32px 26px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 18px;
+      text-align: center;
+    }
 
-self.addEventListener("activate", event => {
-  event.waitUntil(
-    caches.keys()
-      .then(keys =>
-        Promise.all(
-          keys
-            .filter(key => key !== CACHE_VERSION)
-            .map(key => caches.delete(key))
-        )
-      )
-      .then(() => self.clients.claim())
-  );
-});
+    h1 {
+      margin: 0 0 10px;
+      font-size: 25px;
+    }
 
-self.addEventListener("fetch", event => {
-  const request = event.request;
+    p {
+      color: #cbd5e1;
+      line-height: 1.5;
+    }
 
-  if (request.method !== "GET") return;
+    input {
+      width: 100%;
+      padding: 15px;
+      margin: 18px 0 12px;
+      border: 1px solid #475569;
+      border-radius: 9px;
+      background: #0f172a;
+      color: white;
+      font-size: 16px;
+    }
 
-  const url = new URL(request.url);
+    button {
+      width: 100%;
+      padding: 15px;
+      border: 0;
+      border-radius: 9px;
+      background: #2563eb;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
 
-  if (url.origin !== self.location.origin) return;
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
 
-  event.respondWith(
-    (async () => {
+    #mensaje {
+      min-height: 48px;
+      margin-top: 20px;
+      font-size: 14px;
+      overflow-wrap: anywhere;
+    }
+
+    .nota {
+      margin-top: 22px;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+
+<body>
+
+  <main class="contenedor">
+    <h1>Acceso docente</h1>
+
+    <p>
+      Colegio Universitario de Yahualica
+    </p>
+
+    <p>
+      Ingresa tu correo institucional para autorizar este dispositivo.
+    </p>
+
+    <input
+      type="email"
+      id="correo"
+      placeholder="Correo institucional"
+      autocomplete="email"
+    >
+
+    <button id="btnAcceso" onclick="enviarAcceso()">
+      Enviar enlace de acceso
+    </button>
+
+    <div id="mensaje">
+      Esperando información...
+    </div>
+
+    <div class="nota">
+      Sistema de registro de llegada docente CUY
+    </div>
+  </main>
+
+  <script type="module">
+
+    import {
+      initializeApp
+    } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
+
+    import {
+      getAuth,
+      setPersistence,
+      browserLocalPersistence,
+      sendSignInLinkToEmail,
+      isSignInWithEmailLink,
+      signInWithEmailLink,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
+
+
+    // CONFIGURACIÓN FIREBASE
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAMLtZyqiUkME1HwiGSHOFF7wJ-UpmBbJI",
+      authDomain: "checador-docente-cuy.firebaseapp.com",
+      projectId: "checador-docente-cuy",
+      storageBucket: "checador-docente-cuy.firebasestorage.app",
+      messagingSenderId: "15127097699",
+      appId: "1:15127097699:web:308aae0b17e363ad5b2356",
+      measurementId: "G-BP8YEFQDJE"
+    };
+
+
+    // CONFIGURACIÓN DEL SISTEMA
+
+    const URL_APPS_SCRIPT =
+      "https://script.google.com/macros/s/AKfycbyXlKZuyW8NkhM8Jwut84LDVXCQIsx-8Fa0wZ8Jkcdo57s3ZqAnD9Q0IOXgJvw9AKXY/exec";
+
+    const URL_REGISTRO =
+      "https://elhomidiaz-stack.github.io/checador-docente_cuy/index.html";
+
+    const URL_ACCESO =
+      "https://elhomidiaz-stack.github.io/checador-docente_cuy/prueba_firebase.html";
+
+    const CLAVE_DISPOSITIVO = "checador_dispositivo_v1";
+    const CLAVE_CORREO = "checador_correo_acceso";
+
+
+    // INICIALIZAR FIREBASE
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    await setPersistence(auth, browserLocalPersistence);
+
+
+    // ELEMENTOS
+
+    const campoCorreo = document.getElementById("correo");
+    const boton = document.getElementById("btnAcceso");
+    const mensaje = document.getElementById("mensaje");
+
+
+    function mostrar(texto) {
+      mensaje.textContent = texto;
+    }
+
+
+    function bloquear(estado) {
+      boton.disabled = estado;
+    }
+
+
+    function generarId() {
+      return crypto.randomUUID();
+    }
+
+
+    function generarToken() {
+      return crypto.randomUUID() + crypto.randomUUID();
+    }
+
+
+    function tipoDispositivo() {
+      const agente = navigator.userAgent;
+
+      if (/iPhone|iPad|iPod/i.test(agente)) {
+        return "iPhone";
+      }
+
+      if (/Android/i.test(agente)) {
+        return "Android";
+      }
+
+      return "Otro dispositivo";
+    }
+
+
+    function obtenerDispositivo() {
       try {
-        // Siempre intentar obtener primero la versión publicada.
-        const response = await fetch(request, {
-          cache: "no-store"
-        });
+        const datos = localStorage.getItem(CLAVE_DISPOSITIVO);
 
-        // Mantener actualizada la página principal.
+        if (!datos) return null;
+
+        const dispositivo = JSON.parse(datos);
+
         if (
-          response.ok &&
-          (
-            url.pathname.endsWith("/index.html") ||
-            url.pathname.endsWith("/")
-          )
+          dispositivo.id &&
+          dispositivo.token &&
+          dispositivo.estado === "autorizado"
         ) {
-          const cache = await caches.open(CACHE_VERSION);
-          await cache.put("./index.html", response.clone());
+          return dispositivo;
         }
 
-        return response;
+        return null;
 
       } catch (error) {
-        // Solo utilizar una copia local cuando no haya internet.
-        const cached = await caches.match(request);
+        return null;
+      }
+    }
 
-        if (cached) return cached;
 
-        if (request.mode === "navigate") {
-          const principal = await caches.match("./index.html");
+    function crearSolicitud() {
+      return generarId().replace(/-/g, "") +
+             generarId().replace(/-/g, "");
+    }
 
-          if (principal) return principal;
+
+    // CONSULTAR RESULTADOS DEL SERVIDOR
+
+    function consultarServidor(accion, solicitud) {
+
+      return new Promise((resolve, reject) => {
+
+        const callback =
+          "respuesta_" + Date.now() + "_" +
+          Math.floor(Math.random() * 100000);
+
+        const script = document.createElement("script");
+
+        const temporizador = setTimeout(() => {
+          delete window[callback];
+          script.remove();
+          reject(new Error("Tiempo de espera agotado."));
+        }, 12000);
+
+        window[callback] = function(respuesta) {
+          clearTimeout(temporizador);
+          delete window[callback];
+          script.remove();
+          resolve(respuesta);
+        };
+
+        const parametros = new URLSearchParams({
+          action: accion,
+          id: solicitud,
+          callback: callback
+        });
+
+        script.src = URL_APPS_SCRIPT + "?" + parametros.toString();
+
+        script.onerror = () => {
+          clearTimeout(temporizador);
+          delete window[callback];
+          script.remove();
+          reject(new Error("No fue posible consultar el servidor."));
+        };
+
+        document.body.appendChild(script);
+
+      });
+
+    }
+
+
+    // ENVIAR INFORMACIÓN AL SERVIDOR
+
+    async function enviarPOST(datos) {
+
+      await fetch(URL_APPS_SCRIPT, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+        },
+        body: new URLSearchParams(datos)
+      });
+
+    }
+
+
+    // ESPERAR RESPUESTA DEL SERVIDOR
+
+    async function esperarResultado(accion, solicitud) {
+
+      for (let intento = 0; intento < 12; intento++) {
+
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        const respuesta = await consultarServidor(
+          accion,
+          solicitud
+        );
+
+        if (respuesta && respuesta.ok === true) {
+          return respuesta;
         }
 
-        return new Response(
-          "Sin conexión. Intenta nuevamente cuando recuperes internet.",
-          {
-            status: 503,
-            headers: {
-              "Content-Type": "text/plain; charset=utf-8"
-            }
-          }
+        if (respuesta && respuesta.ok === false) {
+          throw new Error(
+            respuesta.mensaje ||
+            respuesta.error ||
+            "El servidor rechazó la solicitud."
+          );
+        }
+
+      }
+
+      throw new Error(
+        "El servidor no respondió a tiempo. Intenta nuevamente."
+      );
+
+    }
+
+
+    // VALIDAR DISPOSITIVO EXISTENTE
+
+    async function validarDispositivo(usuario, dispositivo) {
+
+      mostrar("Verificando autorización del dispositivo...");
+      bloquear(true);
+
+      const solicitud = crearSolicitud();
+
+      await enviarPOST({
+        action: "validar_dispositivo",
+        idToken: await usuario.getIdToken(true),
+        idDispositivo: dispositivo.id,
+        tokenDispositivo: dispositivo.token,
+        tipoDispositivo: tipoDispositivo(),
+        solicitud: solicitud
+      });
+
+      const resultado = await esperarResultado(
+        "resultado_validacion_dispositivo",
+        solicitud
+      );
+
+      if (resultado.ok) {
+        mostrar("Dispositivo autorizado. Entrando al checador...");
+        window.location.replace(URL_REGISTRO);
+        return;
+      }
+
+      throw new Error(
+        resultado.mensaje || "Este dispositivo no está autorizado."
+      );
+
+    }
+
+
+    // VINCULAR NUEVO DISPOSITIVO
+
+    async function vincularDispositivo(usuario) {
+
+      mostrar("Registrando este dispositivo...");
+      bloquear(true);
+
+      const dispositivo = {
+        id: generarId(),
+        token: generarToken(),
+        estado: "pendiente"
+      };
+
+      const solicitud = crearSolicitud();
+
+      await enviarPOST({
+        action: "vincular_dispositivo",
+        idToken: await usuario.getIdToken(true),
+        idDispositivo: dispositivo.id,
+        tokenDispositivo: dispositivo.token,
+        tipoDispositivo: tipoDispositivo(),
+        solicitud: solicitud
+      });
+
+      const resultado = await esperarResultado(
+        "resultado_vinculacion",
+        solicitud
+      );
+
+      if (!resultado.ok) {
+        throw new Error(
+          resultado.mensaje ||
+          "No fue posible autorizar este dispositivo."
         );
       }
-    })()
-  );
-});
+
+      dispositivo.estado = "autorizado";
+
+      localStorage.setItem(
+        CLAVE_DISPOSITIVO,
+        JSON.stringify(dispositivo)
+      );
+
+      mostrar("Dispositivo autorizado. Entrando al checador...");
+
+      window.location.replace(URL_REGISTRO);
+
+    }
+
+
+    // PROCESAR USUARIO AUTENTICADO
+
+    async function procesarUsuario(usuario) {
+
+      try {
+
+        if (!usuario) return;
+
+        mostrar("Verificando tu cuenta institucional...");
+
+        const dispositivo = obtenerDispositivo();
+
+        if (dispositivo) {
+          await validarDispositivo(usuario, dispositivo);
+        } else {
+          await vincularDispositivo(usuario);
+        }
+
+      } catch (error) {
+
+        bloquear(false);
+
+        mostrar(error.message || "Ocurrió un error durante el acceso.");
+
+      }
+
+    }
+
+
+    // ENVIAR ENLACE DE ACCESO
+
+    window.enviarAcceso = async function() {
+
+      try {
+
+        const correo = campoCorreo.value.trim().toLowerCase();
+
+        if (!correo || !correo.includes("@")) {
+          mostrar("Escribe un correo electrónico válido.");
+          return;
+        }
+
+        bloquear(true);
+        mostrar("Enviando enlace de acceso...");
+
+        localStorage.setItem(CLAVE_CORREO, correo);
+
+        await sendSignInLinkToEmail(auth, correo, {
+          url: URL_ACCESO,
+          handleCodeInApp: true
+        });
+
+        mostrar(
+          "Se envió un enlace a tu correo. Ábrelo desde este mismo dispositivo para completar el acceso."
+        );
+
+        bloquear(false);
+
+      } catch (error) {
+
+        bloquear(false);
+
+        mostrar(
+          "No se pudo enviar el enlace: " + error.message
+        );
+
+      }
+
+    };
+
+
+    // COMPLETAR INICIO DE SESIÓN CON ENLACE
+
+    async function completarAcceso() {
+
+      if (!isSignInWithEmailLink(auth, window.location.href)) {
+        return false;
+      }
+
+      let correo = localStorage.getItem(CLAVE_CORREO);
+
+      if (!correo) {
+        correo = prompt(
+          "Confirma el correo al que enviamos el enlace:"
+        );
+      }
+
+      if (!correo) {
+        mostrar("Es necesario confirmar el correo para continuar.");
+        return true;
+      }
+
+      bloquear(true);
+      mostrar("Completando inicio de sesión...");
+
+      try {
+
+        await signInWithEmailLink(
+          auth,
+          correo.trim().toLowerCase(),
+          window.location.href
+        );
+
+        localStorage.removeItem(CLAVE_CORREO);
+
+        window.history.replaceState(
+          {},
+          document.title,
+          URL_ACCESO
+        );
+
+      } catch (error) {
+
+        bloquear(false);
+
+        mostrar(
+          "No se pudo completar el acceso: " + error.message
+        );
+
+      }
+
+      return true;
+
+    }
+
+
+    // INICIO
+
+    const enlaceProcesado = await completarAcceso();
+
+    onAuthStateChanged(auth, async usuario => {
+
+      if (usuario) {
+        await procesarUsuario(usuario);
+      } else if (!enlaceProcesado) {
+        mostrar("Escribe tu correo institucional para comenzar.");
+      }
+
+    });
+
+  </script>
+
+</body>
+</html>
