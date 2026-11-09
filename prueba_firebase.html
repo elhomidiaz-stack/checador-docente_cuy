@@ -3,9 +3,9 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#171717">
-  <title>Checador CUY - Validación</title>
+  <title>Checador CUY - Acceso</title>
 
   <style>
     * { box-sizing: border-box; }
@@ -22,7 +22,7 @@
       justify-content: center;
     }
 
-    .contenedor {
+    main {
       width: 100%;
       max-width: 440px;
       padding: 28px;
@@ -31,17 +31,11 @@
       border-radius: 16px;
     }
 
-    h1 { margin-top: 0; font-size: 25px; }
+    h1 { font-size: 25px; }
 
-    p {
-      color: #c9c9c9;
-      line-height: 1.5;
-    }
+    p { color: #c9c9c9; line-height: 1.5; }
 
-    label {
-      display: block;
-      margin-top: 18px;
-    }
+    label { display: block; margin-top: 18px; }
 
     input {
       width: 100%;
@@ -67,10 +61,7 @@
       cursor: pointer;
     }
 
-    button:disabled {
-      opacity: .5;
-      cursor: not-allowed;
-    }
+    button:disabled { opacity: .5; }
 
     #estado {
       margin-top: 22px;
@@ -82,565 +73,504 @@
       line-height: 1.5;
     }
 
-    .pequeno {
-      margin-top: 20px;
-      font-size: 12px;
-      color: #999;
-    }
+    .pequeno { margin-top: 20px; font-size: 12px; color: #999; }
   </style>
 </head>
 
 <body>
-  <main class="contenedor">
-    <h1>Checador CUY</h1>
+<main>
+  <h1>Checador CUY</h1>
+  <p>Sistema de autenticación institucional y autorización de dispositivos móviles.</p>
 
-    <p>
-      Sistema de autenticación institucional y validación
-      de dispositivos móviles.
-    </p>
+  <div id="formulario">
+    <label for="correo">Correo institucional</label>
+    <input
+      type="email"
+      id="correo"
+      placeholder="docente@colegiodeyahualica.edu.mx"
+      autocomplete="email"
+    >
+    <button id="btnEnviar">Enviar enlace de acceso</button>
+  </div>
 
-    <div id="formulario">
-      <label for="correo">Correo institucional</label>
+  <div id="estado">Comprobando sesión...</div>
 
-      <input
-        type="email"
-        id="correo"
-        placeholder="docente@colegiodeyahualica.edu.mx"
-        autocomplete="email"
-      >
+  <p class="pequeno">
+    Colegio Universitario de Yahualica · Sistema de asistencia docente
+  </p>
+</main>
 
-      <button id="btnEnviar">
-        Enviar enlace de acceso
-      </button>
-    </div>
+<script type="module">
 
-    <div id="estado">Comprobando sesión...</div>
+/*************************************************
+ * FIREBASE
+ *************************************************/
 
-    <p class="pequeno">
-      Colegio Universitario de Yahualica · Sistema de asistencia docente
-    </p>
-  </main>
+import { initializeApp } from
+  "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 
-  <script type="module">
+import {
+  getAuth,
+  setPersistence,
+  browserLocalPersistence,
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink,
+  onAuthStateChanged
+} from
+  "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
 
-    // ==========================================
-    // 1. FIREBASE
-    // ==========================================
+const firebaseConfig = {
+  apiKey: "AIzaSyAMLtZyqiUkME1HwiGSHOFF7wJ-UpmBbJI",
+  authDomain: "checador-docente-cuy.firebaseapp.com",
+  projectId: "checador-docente-cuy",
+  storageBucket: "checador-docente-cuy.firebasestorage.app",
+  messagingSenderId: "15127097699",
+  appId: "1:15127097699:web:308aae0b17e363ad5b2356",
+  measurementId: "G-BP8YEFQDJE"
+};
 
-    import { initializeApp } from
-      "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 
-    import {
-      getAuth,
-      sendSignInLinkToEmail,
-      isSignInWithEmailLink,
-      signInWithEmailLink,
-      onAuthStateChanged
-    } from
-      "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyAMLtZyqiUkME1HwiGSHOFFw7j-UpmBbJI",
-      authDomain: "checador-docente-cuy.firebaseapp.com",
-      projectId: "checador-docente-cuy",
-      storageBucket: "checador-docente-cuy.firebasestorage.app",
-      messagingSenderId: "15127097699",
-      appId: "1:15127097699:web:308aae0b17e363ad5b2356",
-      measurementId: "G-BP8YEFQDJE"
+/*************************************************
+ * CONFIGURACIÓN
+ *************************************************/
+
+const SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbyXlKZuyW8NkhM8Jwut84LDVXCQIsx-8Fa0wZ8Jkcdo57s3ZqAnD9Q0IOXgJvw9AKXY/exec";
+
+const URL_PAGINA =
+  "https://elhomidiaz-stack.github.io/checador-docente_cuy/prueba_firebase.html";
+
+const URL_CHECADOR =
+  "https://elhomidiaz-stack.github.io/checador-docente_cuy/index.html";
+
+const CLAVE_CORREO = "firebase_correo_prueba";
+const CLAVE_DISPOSITIVO = "checador_dispositivo_v1";
+
+const estado = document.getElementById("estado");
+const formulario = document.getElementById("formulario");
+const botonEnviar = document.getElementById("btnEnviar");
+
+let procesando = false;
+
+
+/*************************************************
+ * FUNCIONES GENERALES
+ *************************************************/
+
+function mostrar(mensaje) {
+  estado.textContent = mensaje;
+}
+
+function generarUUID() {
+  return crypto.randomUUID();
+}
+
+function generarTextoAleatorio(bytes) {
+  const valores = new Uint8Array(bytes);
+  crypto.getRandomValues(valores);
+
+  let texto = "";
+
+  valores.forEach(valor => {
+    texto += String.fromCharCode(valor);
+  });
+
+  return btoa(texto)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function identificarTipoTelefono() {
+  const agente = navigator.userAgent || "";
+
+  if (/iPhone|iPad|iPod/i.test(agente)) return "iPhone";
+  if (/Android/i.test(agente)) return "Android";
+
+  return "Otro dispositivo";
+}
+
+
+/*************************************************
+ * IDENTIFICADOR DEL DISPOSITIVO
+ *************************************************/
+
+function obtenerDispositivo() {
+  const guardado = localStorage.getItem(CLAVE_DISPOSITIVO);
+
+  if (guardado) {
+    try {
+      const dispositivo = JSON.parse(guardado);
+
+      if (dispositivo.id && dispositivo.token) {
+        return dispositivo;
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  const dispositivo = {
+    id: generarTextoAleatorio(24),
+    token: generarTextoAleatorio(32),
+    estado: "pendiente"
+  };
+
+  localStorage.setItem(
+    CLAVE_DISPOSITIVO,
+    JSON.stringify(dispositivo)
+  );
+
+  return dispositivo;
+}
+
+
+/*************************************************
+ * CONSULTAS JSONP
+ *************************************************/
+
+function consultarResultado(accion, solicitud) {
+  return new Promise((resolve, reject) => {
+    const callback = "respuesta_" +
+      generarUUID().replace(/-/g, "");
+
+    const script = document.createElement("script");
+    let terminado = false;
+
+    function limpiar() {
+      clearTimeout(temporizador);
+      delete window[callback];
+      script.remove();
+    }
+
+    const temporizador = setTimeout(() => {
+      if (terminado) return;
+
+      terminado = true;
+      limpiar();
+      reject(new Error("Tiempo de espera agotado."));
+    }, 10000);
+
+    window[callback] = resultado => {
+      if (terminado) return;
+
+      terminado = true;
+      limpiar();
+      resolve(resultado);
     };
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-
-
-    // ==========================================
-    // 2. CONFIGURACIÓN DEL CHECADOR
-    // ==========================================
-
-    const SCRIPT_URL =
-      "https://script.google.com/macros/s/AKfycbyXlKZuyW8NkhM8Jwut84LDVXCQIsx-8Fa0wZ8Jkcdo57s3ZqAnD9Q0IOXgJvw9AKXY/exec";
-
-    const URL_PAGINA =
-      "https://elhomidiaz-stack.github.io/checador-docente_cuy/prueba_firebase.html";
-
-    const CLAVE_CORREO = "firebase_correo_prueba";
-    const CLAVE_DISPOSITIVO = "checador_dispositivo_v1";
-
-    const estado = document.getElementById("estado");
-    const formulario = document.getElementById("formulario");
-    const botonEnviar = document.getElementById("btnEnviar");
-
-    let procesando = false;
-
-
-    // ==========================================
-    // 3. FUNCIONES GENERALES
-    // ==========================================
-
-    function mostrar(mensaje) {
-      estado.textContent = mensaje;
-    }
-
-    function generarUUID() {
-      if (crypto.randomUUID) {
-        return crypto.randomUUID();
-      }
-
-      return generarTextoAleatorio(16);
-    }
-
-    function generarTextoAleatorio(bytes) {
-      const valores = new Uint8Array(bytes);
-      crypto.getRandomValues(valores);
-
-      let texto = "";
-
-      valores.forEach(valor => {
-        texto += String.fromCharCode(valor);
-      });
-
-      return btoa(texto)
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-        .replace(/=+$/g, "");
-    }
-
-
-    // ==========================================
-    // 4. IDENTIFICAR EL TIPO DE TELÉFONO
-    // ==========================================
-
-    function identificarTipoTelefono() {
-      const agente = navigator.userAgent || "";
-
-      if (/iPhone|iPad|iPod/i.test(agente)) {
-        return "iPhone";
-      }
-
-      if (/Android/i.test(agente)) {
-        return "Android";
-      }
-
-      return "Otro dispositivo";
-    }
-
-
-    // ==========================================
-    // 5. IDENTIFICADOR DEL DISPOSITIVO
-    // ==========================================
-
-    function obtenerDispositivo() {
-      const guardado = localStorage.getItem(CLAVE_DISPOSITIVO);
-
-      if (guardado) {
-        try {
-          const dispositivo = JSON.parse(guardado);
-
-          if (dispositivo.id && dispositivo.token) {
-            return dispositivo;
-          }
-        } catch (error) {
-          console.error("No se pudo leer el dispositivo:", error);
-        }
-      }
-
-      const dispositivo = {
-        id: generarTextoAleatorio(24),
-        token: generarTextoAleatorio(32),
-        estado: "pendiente"
-      };
-
-      localStorage.setItem(
-        CLAVE_DISPOSITIVO,
-        JSON.stringify(dispositivo)
-      );
-
-      return dispositivo;
-    }
-
-
-    // ==========================================
-    // 6. CONSULTAR RESULTADO DEL SERVIDOR
-    // ==========================================
-
-    function consultarResultado(accion, solicitud) {
-      return new Promise((resolve, reject) => {
-
-        const callback =
-          "respuesta_" + generarUUID().replace(/-/g, "");
-
-        const script = document.createElement("script");
-        let terminado = false;
-
-        function limpiar() {
-          if (script.parentNode) {
-            script.parentNode.removeChild(script);
-          }
-
-          delete window[callback];
-        }
-
-        const temporizador = setTimeout(() => {
-          if (terminado) return;
-
-          terminado = true;
-          limpiar();
-
-          reject(new Error("Tiempo de espera agotado."));
-        }, 10000);
-
-        window[callback] = resultado => {
-          if (terminado) return;
-
-          terminado = true;
-          clearTimeout(temporizador);
-          limpiar();
-
-          resolve(resultado);
-        };
-
-        // IMPORTANTE:
-        // El servidor recibe el identificador mediante "id".
-        const parametros = new URLSearchParams({
-          action: accion,
-          id: solicitud,
-          callback: callback
-        });
-
-        script.src = SCRIPT_URL + "?" + parametros.toString();
-
-        script.onerror = () => {
-          if (terminado) return;
-
-          terminado = true;
-          clearTimeout(temporizador);
-          limpiar();
-
-          reject(new Error("No se pudo consultar el servidor."));
-        };
-
-        document.body.appendChild(script);
-      });
-    }
-
-
-    // ==========================================
-    // 7. ENVIAR SOLICITUD AL SERVIDOR
-    // ==========================================
-
-    async function enviarSolicitud(datos) {
-      await fetch(SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: {
-          "Content-Type":
-            "application/x-www-form-urlencoded;charset=UTF-8"
-        },
-        body: datos.toString()
-      });
-    }
-
-
-    // ==========================================
-    // 8. ESPERAR RESPUESTA DEL SERVIDOR
-    // ==========================================
-
-    async function esperarResultado(accion, solicitud) {
-
-      for (let intento = 0; intento < 15; intento++) {
-
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        try {
-          const resultado = await consultarResultado(
-            accion,
-            solicitud
-          );
-
-          if (resultado && resultado.pendiente) {
-            continue;
-          }
-
-          if (resultado) {
-            return resultado;
-          }
-
-        } catch (error) {
-          console.log("Esperando respuesta:", error.message);
-        }
-      }
-
-      throw new Error(
-        "El servidor no respondió a tiempo. Intenta nuevamente."
-      );
-    }
-
-
-    // ==========================================
-    // 9. VALIDAR DISPOSITIVO EXISTENTE
-    // ==========================================
-
-    async function validarDispositivo(usuario, dispositivo) {
-
-      mostrar(
-        "Sesión detectada.\n\n" +
-        "Comprobando que este teléfono siga autorizado..."
-      );
-
-      const idToken = await usuario.getIdToken(true);
-      const solicitud = generarUUID();
-
-      const datos = new URLSearchParams({
-        action: "validar_dispositivo",
-        idToken: idToken,
-        idDispositivo: dispositivo.id,
-        tokenDispositivo: dispositivo.token,
-        tipoDispositivo: identificarTipoTelefono(),
-        solicitud: solicitud
-      });
-
-      await enviarSolicitud(datos);
-
-      const resultado = await esperarResultado(
-        "resultado_validacion_dispositivo",
-        solicitud
-      );
-
-      if (!resultado || resultado.ok !== true) {
-        mostrar(
-          "No se pudo confirmar la autorización.\n\n" +
-          (resultado?.mensaje || "El servidor no pudo confirmar el dispositivo.") +
-          "\n\nTus credenciales locales se conservan. Intenta nuevamente."
-        );
-        return;
-      }
-
-      if (resultado.autorizado !== true) {
-        mostrar(
-          "Este teléfono no está autorizado.\n\n" +
-          (resultado.mensaje || "Contacta a coordinación.")
-        );
-        return;
-      }
-
-      dispositivo.estado = "autorizado";
-
-      localStorage.setItem(
-        CLAVE_DISPOSITIVO,
-        JSON.stringify(dispositivo)
-      );
-
-      mostrar(
-        "¡Dispositivo validado correctamente!\n\n" +
-        "Correo: " + resultado.correo + "\n" +
-        "Nombre: " + resultado.nombre + "\n" +
-        "Teléfono: " + identificarTipoTelefono() + "\n\n" +
-        "Este teléfono continúa autorizado."
-      );
-    }
-
-
-    // ==========================================
-    // 10. VINCULAR DISPOSITIVO NUEVO
-    // ==========================================
-
-    async function vincularDispositivo(usuario, dispositivo) {
-
-      mostrar(
-        "Correo verificado.\n\n" +
-        "Solicitando autorización de este teléfono..."
-      );
-
-      const idToken = await usuario.getIdToken(true);
-      const solicitud = generarUUID();
-
-      const datos = new URLSearchParams({
-        action: "vincular_dispositivo",
-        idToken: idToken,
-        idDispositivo: dispositivo.id,
-        tokenDispositivo: dispositivo.token,
-        tipoDispositivo: identificarTipoTelefono(),
-        solicitud: solicitud
-      });
-
-      await enviarSolicitud(datos);
-
-      const resultado = await esperarResultado(
-        "resultado_vinculacion",
-        solicitud
-      );
-
-      if (
-        !resultado ||
-        resultado.ok !== true ||
-        resultado.autorizado !== true
-      ) {
-        mostrar(
-          "No fue posible autorizar este teléfono.\n\n" +
-          (resultado?.mensaje || "El servidor no confirmó la solicitud.") +
-          "\n\nEl identificador del teléfono se conserva."
-        );
-        return;
-      }
-
-      dispositivo.estado = "autorizado";
-
-      localStorage.setItem(
-        CLAVE_DISPOSITIVO,
-        JSON.stringify(dispositivo)
-      );
-
-      mostrar(
-        "¡Dispositivo autorizado!\n\n" +
-        "Correo: " + resultado.correo + "\n" +
-        "Nombre: " + resultado.nombre + "\n" +
-        "Teléfono: " + identificarTipoTelefono() + "\n\n" +
-        "La vinculación se completó correctamente."
-      );
-    }
-
-
-    // ==========================================
-    // 11. PROCESAR USUARIO AUTENTICADO
-    // ==========================================
-
-    async function procesarUsuario(usuario) {
-
-      if (procesando) return;
-
-      procesando = true;
-      formulario.style.display = "none";
-
-      try {
-        const dispositivo = obtenerDispositivo();
-
-        if (dispositivo.estado === "autorizado") {
-          await validarDispositivo(usuario, dispositivo);
-        } else {
-          await vincularDispositivo(usuario, dispositivo);
-        }
-
-      } catch (error) {
-        console.error(error);
-
-        mostrar(
-          "No se pudo completar la comprobación.\n\n" +
-          error.message +
-          "\n\nEl identificador del teléfono se conserva."
-        );
-
-      } finally {
-        procesando = false;
-      }
-    }
-
-
-    // ==========================================
-    // 12. ENVIAR ENLACE DE ACCESO
-    // ==========================================
-
-    botonEnviar.addEventListener("click", async () => {
-
-      const correo = document
-        .getElementById("correo")
-        .value.trim()
-        .toLowerCase();
-
-      if (!correo || !correo.includes("@")) {
-        mostrar("Escribe un correo electrónico válido.");
-        return;
-      }
-
-      botonEnviar.disabled = true;
-      mostrar("Enviando enlace de acceso...");
-
-      try {
-        await sendSignInLinkToEmail(auth, correo, {
-          url: URL_PAGINA,
-          handleCodeInApp: true
-        });
-
-        localStorage.setItem(CLAVE_CORREO, correo);
-
-        mostrar(
-          "Enlace enviado correctamente a:\n\n" +
-          correo +
-          "\n\nAbre el enlace en este mismo navegador."
-        );
-
-      } catch (error) {
-        console.error(error);
-
-        mostrar(
-          "No se pudo enviar el enlace.\n\n" +
-          error.message
-        );
-
-      } finally {
-        botonEnviar.disabled = false;
-      }
+    const parametros = new URLSearchParams({
+      action: accion,
+      id: solicitud,
+      callback
     });
 
+    script.src = SCRIPT_URL + "?" + parametros.toString();
 
-    // ==========================================
-    // 13. COMPLETAR AUTENTICACIÓN
-    // ==========================================
+    script.onerror = () => {
+      if (terminado) return;
 
-    async function comprobarEnlace() {
+      terminado = true;
+      limpiar();
+      reject(new Error("No se pudo consultar el servidor."));
+    };
 
-      if (!isSignInWithEmailLink(auth, window.location.href)) {
-        return;
-      }
+    document.body.appendChild(script);
+  });
+}
 
-      let correo = localStorage.getItem(CLAVE_CORREO);
 
-      if (!correo) {
-        correo = window.prompt(
-          "Confirma el correo al que recibiste el enlace:"
-        );
-      }
+/*************************************************
+ * ENVÍO POST Y ESPERA
+ *************************************************/
 
-      if (!correo) {
-        mostrar("No se indicó el correo para completar el acceso.");
-        return;
-      }
+async function enviarSolicitud(datos) {
+  await fetch(SCRIPT_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: {
+      "Content-Type":
+        "application/x-www-form-urlencoded;charset=UTF-8"
+    },
+    body: datos.toString()
+  });
+}
 
-      try {
-        mostrar("Verificando enlace de acceso...");
+async function esperarResultado(accion, solicitud) {
+  for (let intento = 0; intento < 15; intento++) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
-        await signInWithEmailLink(
-          auth,
-          correo,
-          window.location.href
-        );
+    try {
+      const resultado = await consultarResultado(
+        accion,
+        solicitud
+      );
 
-        localStorage.removeItem(CLAVE_CORREO);
+      if (resultado?.pendiente) continue;
+      if (resultado) return resultado;
 
-        window.history.replaceState(
-          {},
-          document.title,
-          URL_PAGINA
-        );
+    } catch (error) {
+      console.log(error.message);
+    }
+  }
 
-        mostrar("Acceso verificado. Comprobando teléfono...");
+  throw new Error("El servidor no confirmó la operación.");
+}
 
-      } catch (error) {
-        console.error(error);
 
-        mostrar(
-          "No se pudo completar la autenticación.\n\n" +
-          error.message
-        );
-      }
+/*************************************************
+ * VALIDAR DISPOSITIVO YA AUTORIZADO
+ *************************************************/
+
+async function validarDispositivo(usuario, dispositivo) {
+  mostrar("Comprobando autorización del teléfono...");
+
+  const idToken = await usuario.getIdToken(true);
+  const solicitud = generarUUID();
+
+  const datos = new URLSearchParams({
+    action: "validar_dispositivo",
+    idToken,
+    idDispositivo: dispositivo.id,
+    tokenDispositivo: dispositivo.token,
+    tipoDispositivo: identificarTipoTelefono(),
+    solicitud
+  });
+
+  await enviarSolicitud(datos);
+
+  const resultado = await esperarResultado(
+    "resultado_validacion_dispositivo",
+    solicitud
+  );
+
+  if (
+    !resultado ||
+    resultado.ok !== true ||
+    resultado.autorizado !== true
+  ) {
+    throw new Error(
+      resultado?.mensaje || "Este teléfono no está autorizado."
+    );
+  }
+
+  return resultado;
+}
+
+
+/*************************************************
+ * VINCULAR TELÉFONO NUEVO
+ *************************************************/
+
+async function vincularDispositivo(usuario, dispositivo) {
+  mostrar("Solicitando autorización del teléfono...");
+
+  const idToken = await usuario.getIdToken(true);
+  const solicitud = generarUUID();
+
+  const datos = new URLSearchParams({
+    action: "vincular_dispositivo",
+    idToken,
+    idDispositivo: dispositivo.id,
+    tokenDispositivo: dispositivo.token,
+    tipoDispositivo: identificarTipoTelefono(),
+    solicitud
+  });
+
+  await enviarSolicitud(datos);
+
+  const resultado = await esperarResultado(
+    "resultado_vinculacion",
+    solicitud
+  );
+
+  if (
+    !resultado ||
+    resultado.ok !== true ||
+    resultado.autorizado !== true
+  ) {
+    throw new Error(
+      resultado?.mensaje || "No fue posible autorizar este teléfono."
+    );
+  }
+
+  return resultado;
+}
+
+
+/*************************************************
+ * PROCESAR SESIÓN Y ENTRAR AL CHECADOR
+ *************************************************/
+
+async function procesarUsuario(usuario) {
+  if (procesando) return;
+
+  procesando = true;
+  formulario.style.display = "none";
+
+  try {
+    const tipo = identificarTipoTelefono();
+
+    // No permitir vincular computadoras.
+    if (tipo === "Otro dispositivo") {
+      throw new Error(
+        "El checador solo permite teléfonos Android o iPhone. " +
+        "No se autorizó este dispositivo."
+      );
     }
 
+    const dispositivo = obtenerDispositivo();
+    let resultado;
 
-    // ==========================================
-    // 14. RECONOCER SESIÓN AUTOMÁTICAMENTE
-    // ==========================================
+    if (dispositivo.estado === "autorizado") {
+      resultado = await validarDispositivo(usuario, dispositivo);
+    } else {
+      resultado = await vincularDispositivo(usuario, dispositivo);
+    }
+
+    dispositivo.estado = "autorizado";
+
+    localStorage.setItem(
+      CLAVE_DISPOSITIVO,
+      JSON.stringify(dispositivo)
+    );
+
+    mostrar(
+      "¡Teléfono autorizado correctamente!\n\n" +
+      "Correo: " + (resultado.correo || usuario.email) +
+      "\nNombre: " + (resultado.nombre || "") +
+      "\nDispositivo: " + tipo +
+      "\n\nAbriendo el checador..."
+    );
+
+    // Entrar automáticamente después de validar.
+    setTimeout(() => {
+      window.location.replace(URL_CHECADOR);
+    }, 1000);
+
+  } catch (error) {
+    console.error(error);
+
+    mostrar(
+      "No se pudo completar el acceso.\n\n" +
+      error.message
+    );
+
+    formulario.style.display = "block";
+
+  } finally {
+    procesando = false;
+  }
+}
+
+
+/*************************************************
+ * ENVIAR ENLACE DE ACCESO
+ *************************************************/
+
+botonEnviar.addEventListener("click", async () => {
+  const correo = document
+    .getElementById("correo")
+    .value.trim()
+    .toLowerCase();
+
+  if (!correo || !correo.includes("@")) {
+    mostrar("Escribe un correo electrónico válido.");
+    return;
+  }
+
+  if (identificarTipoTelefono() === "Otro dispositivo") {
+    mostrar("El acceso y la autorización se realizan desde un teléfono.");
+    return;
+  }
+
+  botonEnviar.disabled = true;
+  mostrar("Enviando enlace de acceso...");
+
+  try {
+    await sendSignInLinkToEmail(auth, correo, {
+      url: URL_PAGINA,
+      handleCodeInApp: true
+    });
+
+    localStorage.setItem(CLAVE_CORREO, correo);
+
+    mostrar(
+      "Enlace enviado correctamente a:\n\n" +
+      correo +
+      "\n\nAbre el enlace en este mismo teléfono."
+    );
+
+  } catch (error) {
+    console.error(error);
+    mostrar("No se pudo enviar el enlace.\n\n" + error.message);
+
+  } finally {
+    botonEnviar.disabled = false;
+  }
+});
+
+
+/*************************************************
+ * COMPLETAR AUTENTICACIÓN POR ENLACE
+ *************************************************/
+
+async function comprobarEnlace() {
+  if (!isSignInWithEmailLink(auth, window.location.href)) {
+    return;
+  }
+
+  let correo = localStorage.getItem(CLAVE_CORREO);
+
+  if (!correo) {
+    correo = window.prompt(
+      "Confirma el correo al que recibiste el enlace:"
+    );
+  }
+
+  if (!correo) {
+    mostrar("No se indicó el correo para completar el acceso.");
+    return;
+  }
+
+  try {
+    mostrar("Verificando enlace de acceso...");
+
+    await signInWithEmailLink(
+      auth,
+      correo,
+      window.location.href
+    );
+
+    localStorage.removeItem(CLAVE_CORREO);
+
+    window.history.replaceState(
+      {},
+      document.title,
+      URL_PAGINA
+    );
+
+  } catch (error) {
+    console.error(error);
+    mostrar("No se pudo completar la autenticación.\n\n" + error.message);
+  }
+}
+
+
+/*************************************************
+ * INICIO SEGURO DE FIREBASE
+ *************************************************/
+
+async function iniciar() {
+  try {
+    // Mantener la sesión al cambiar entre index y acceso.
+    await setPersistence(auth, browserLocalPersistence);
 
     onAuthStateChanged(auth, usuario => {
-
       if (usuario) {
         procesarUsuario(usuario);
       } else {
@@ -652,13 +582,16 @@
       }
     });
 
+    await comprobarEnlace();
 
-    // ==========================================
-    // 15. INICIAR
-    // ==========================================
+  } catch (error) {
+    console.error(error);
+    mostrar("No se pudo iniciar Firebase.\n\n" + error.message);
+  }
+}
 
-    comprobarEnlace();
+iniciar();
 
-  </script>
+</script>
 </body>
 </html>
