@@ -85,6 +85,38 @@
 </main>
 
 <script type="module">
+
+/* LIMPIAR SERVICE WORKERS ANTERIORES */
+
+async function limpiarServiceWorkers() {
+  try {
+    if ("serviceWorker" in navigator) {
+      const registros =
+        await navigator.serviceWorker.getRegistrations();
+
+      await Promise.all(
+        registros.map(registro => registro.unregister())
+      );
+    }
+
+    if ("caches" in window) {
+      const nombres = await caches.keys();
+
+      await Promise.all(
+        nombres.map(nombre => caches.delete(nombre))
+      );
+    }
+
+    console.log("Service Workers anteriores desactivados.");
+  } catch (error) {
+    console.error("Error limpiando caché:", error);
+  }
+}
+
+await limpiarServiceWorkers();
+
+/* FIREBASE */
+
 import { initializeApp } from
   "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 
@@ -135,14 +167,17 @@ function uuid() {
 
 function tipoTelefono() {
   const agente = navigator.userAgent || "";
+
   if (/iPhone|iPad|iPod/i.test(agente)) return "iPhone";
   if (/Android/i.test(agente)) return "Android";
+
   return "Otro dispositivo";
 }
 
 function obtenerDispositivo() {
   try {
     const texto = localStorage.getItem(CLAVE_DISPOSITIVO);
+
     if (!texto) return null;
 
     const dispositivo = JSON.parse(texto);
@@ -185,7 +220,9 @@ function abrirDB() {
 function guardarLocal(registro) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("asistencias", "readwrite");
+
     tx.objectStore("asistencias").put(registro);
+
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
@@ -249,6 +286,7 @@ function consultarServidor(accion, solicitud) {
   return new Promise((resolve, reject) => {
     const callback = "cuy_" + uuid().replace(/-/g, "");
     const script = document.createElement("script");
+
     let terminado = false;
 
     function limpiar() {
@@ -259,15 +297,19 @@ function consultarServidor(accion, solicitud) {
 
     const temporizador = setTimeout(() => {
       if (terminado) return;
+
       terminado = true;
       limpiar();
+
       reject(new Error("Tiempo de espera agotado."));
     }, 10000);
 
     window[callback] = resultado => {
       if (terminado) return;
+
       terminado = true;
       limpiar();
+
       resolve(resultado);
     };
 
@@ -281,8 +323,10 @@ function consultarServidor(accion, solicitud) {
 
     script.onerror = () => {
       if (terminado) return;
+
       terminado = true;
       limpiar();
+
       reject(new Error("No se pudo consultar el servidor."));
     };
 
@@ -307,10 +351,13 @@ async function esperarResultado(accion, solicitud) {
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     try {
-      const resultado = await consultarServidor(accion, solicitud);
+      const resultado =
+        await consultarServidor(accion, solicitud);
 
       if (resultado?.pendiente) continue;
+
       if (resultado) return resultado;
+
     } catch (error) {
       console.log(error.message);
     }
@@ -385,6 +432,7 @@ async function sincronizarRegistro(usuario, dispositivo, registro) {
 
   registro.sincronizado = true;
   registro.resultadoServidor = resultado;
+
   await guardarLocal(registro);
 
   return resultado;
@@ -399,12 +447,14 @@ async function registrarLlegada(usuario, dispositivo) {
 
   if (registro?.sincronizado) {
     mostrar("La asistencia de hoy ya fue procesada.");
+
     mostrarDetalle(
       "Correo: " + usuario.email +
       "\nFecha: " + fechaLegible(registro.timestamp) +
       "\nHora: " + horaLegible(registro.timestamp) +
       "\nEstado: Enviado al servidor"
     );
+
     return;
   }
 
@@ -422,6 +472,7 @@ async function registrarLlegada(usuario, dispositivo) {
 
   if (!navigator.onLine) {
     mostrar("Asistencia guardada en este teléfono.");
+
     mostrarDetalle(
       "Correo: " + usuario.email +
       "\nFecha: " + fechaLegible(registro.timestamp) +
@@ -429,6 +480,7 @@ async function registrarLlegada(usuario, dispositivo) {
       "\nEstado: Pendiente de enviar a Google Sheets" +
       "\n\nSe enviará cuando vuelva la conexión."
     );
+
     return;
   }
 
@@ -448,10 +500,13 @@ async function registrarLlegada(usuario, dispositivo) {
 
   mostrarDetalle(
     "Correo: " + usuario.email +
-    "\nFecha: " + (resultado.fecha || fechaLegible(registro.timestamp)) +
-    "\nHora: " + (resultado.hora || resultado.horaOriginal || horaLegible(registro.timestamp)) +
+    "\nFecha: " +
+    (resultado.fecha || fechaLegible(registro.timestamp)) +
+    "\nHora: " +
+    (resultado.hora || resultado.horaOriginal || horaLegible(registro.timestamp)) +
     "\nDispositivo: " + tipoTelefono() +
-    "\nConsecutivo: " + (resultado.consecutivo || "Ya existente") +
+    "\nConsecutivo: " +
+    (resultado.consecutivo || "Ya existente") +
     "\nEstado: Confirmado por Google Sheets"
   );
 }
@@ -479,11 +534,14 @@ async function sincronizarPendientes(usuario, dispositivo) {
 
 async function iniciar(usuario) {
   if (procesando) return;
+
   procesando = true;
 
   try {
     if (!usuario) {
-      mostrar("Necesitas iniciar sesión. Abriendo acceso institucional...");
+      mostrar(
+        "Necesitas iniciar sesión. Abriendo acceso institucional..."
+      );
 
       setTimeout(() => {
         window.location.href = URL_ACCESO;
@@ -497,10 +555,14 @@ async function iniciar(usuario) {
     const dispositivo = obtenerDispositivo();
 
     if (!dispositivo) {
-      mostrar("Este teléfono no tiene autorización local. Abriendo acceso...");
+      mostrar(
+        "Este teléfono no tiene autorización local. Abriendo acceso..."
+      );
+
       setTimeout(() => {
         window.location.href = URL_ACCESO;
       }, 1500);
+
       return;
     }
 
@@ -510,12 +572,14 @@ async function iniciar(usuario) {
       await validarTelefono(usuario, dispositivo);
 
       dispositivo.estado = "autorizado";
+
       localStorage.setItem(
         CLAVE_DISPOSITIVO,
         JSON.stringify(dispositivo)
       );
 
       await sincronizarPendientes(usuario, dispositivo);
+
       await registrarLlegada(usuario, dispositivo);
 
     } else {
@@ -524,7 +588,11 @@ async function iniciar(usuario) {
 
   } catch (error) {
     console.error(error);
-    mostrar("No se pudo completar el registro.\n\n" + error.message);
+
+    mostrar(
+      "No se pudo completar el registro.\n\n" + error.message
+    );
+
   } finally {
     procesando = false;
   }
@@ -538,10 +606,6 @@ window.addEventListener("online", async () => {
   }
 });
 
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("./sw.js")
-    .catch(error => console.error("Service Worker:", error));
-}
 </script>
 </body>
 </html>
