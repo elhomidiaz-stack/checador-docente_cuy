@@ -8,9 +8,7 @@
   <title>Checador CUY - Validación</title>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -33,19 +31,14 @@
       border-radius: 16px;
     }
 
-    h1 {
-      margin-top: 0;
-      font-size: 25px;
-    }
+    h1 { margin-top: 0; font-size: 25px; }
 
     p {
       color: #c9c9c9;
       line-height: 1.5;
     }
 
-    label {
-      display: block;
-    }
+    label { display: block; }
 
     input {
       width: 100%;
@@ -97,7 +90,6 @@
 <body>
 
   <main class="contenedor">
-
     <h1>Checador CUY</h1>
 
     <p>
@@ -106,7 +98,6 @@
     </p>
 
     <div id="formulario">
-
       <label for="correo">Correo institucional</label>
 
       <input
@@ -119,19 +110,14 @@
       <button id="btnEnviar">
         Enviar enlace de acceso
       </button>
-
     </div>
 
-    <div id="estado">
-      Iniciando sistema...
-    </div>
+    <div id="estado">Iniciando sistema...</div>
 
     <p class="pequeno">
       Colegio Universitario de Yahualica · Sistema de asistencia docente
     </p>
-
   </main>
-
 
   <script type="module">
 
@@ -175,7 +161,7 @@
     // ==========================================
 
     const SCRIPT_URL =
-      "https://script.google.com/macros/s/AKfycbzRJzsDDnGsaXzC4NSm0iQMzs6veZtpR-OIZfKkDhZX38r3q8PGZ3U9aoAU56SIIej-/exec";
+      "https://script.google.com/macros/s/AKfycbyXlKZuyW8NkhM8Jwut84LDVXCQIsx-8Fa0wZ8Jkcdo57s3ZqAnD9Q0IOXgJvw9AKXY/exec";
 
     const URL_PAGINA =
       "https://elhomidiaz-stack.github.io/checador-docente_cuy/prueba_firebase.html";
@@ -200,9 +186,7 @@
     // ==========================================
 
     function generarTextoAleatorio(bytes) {
-
       const valores = new Uint8Array(bytes);
-
       crypto.getRandomValues(valores);
 
       let texto = "";
@@ -223,13 +207,10 @@
     // ==========================================
 
     function obtenerDispositivo() {
-
       const guardado = localStorage.getItem(CLAVE_DISPOSITIVO);
 
       if (guardado) {
-
         try {
-
           const dispositivo = JSON.parse(guardado);
 
           if (dispositivo.id && dispositivo.token) {
@@ -261,16 +242,10 @@
     // ==========================================
 
     function identificarTipoTelefono() {
-
       const agente = navigator.userAgent || "";
 
-      if (/iPhone|iPad|iPod/i.test(agente)) {
-        return "iPhone";
-      }
-
-      if (/Android/i.test(agente)) {
-        return "Android";
-      }
+      if (/iPhone|iPad|iPod/i.test(agente)) return "iPhone";
+      if (/Android/i.test(agente)) return "Android";
 
       return "Otro dispositivo";
     }
@@ -281,7 +256,6 @@
     // ==========================================
 
     function consultarResultado(accion, solicitud) {
-
       return new Promise((resolve, reject) => {
 
         const callback =
@@ -289,11 +263,9 @@
           crypto.randomUUID().replace(/-/g, "");
 
         const script = document.createElement("script");
-
         let terminado = false;
 
         function limpiar() {
-
           if (script.parentNode) {
             script.parentNode.removeChild(script);
           }
@@ -302,34 +274,25 @@
         }
 
         const temporizador = setTimeout(() => {
-
           if (terminado) return;
 
           terminado = true;
           limpiar();
 
           reject(new Error("Tiempo de espera agotado."));
-
         }, 10000);
 
-
         window[callback] = resultado => {
-
           if (terminado) return;
 
           terminado = true;
-
           clearTimeout(temporizador);
-
           limpiar();
 
           resolve(resultado);
         };
 
-
-        // IMPORTANTE:
-        // El doGet del servidor espera el parámetro "id".
-
+        // El servidor doGet espera el identificador en "id".
         const parametros = new URLSearchParams({
           action: accion,
           id: solicitud,
@@ -338,61 +301,48 @@
 
         script.src = SCRIPT_URL + "?" + parametros.toString();
 
-
         script.onerror = () => {
-
           if (terminado) return;
 
           terminado = true;
-
           clearTimeout(temporizador);
-
           limpiar();
 
-          reject(
-            new Error("No se pudo consultar el servidor.")
-          );
+          reject(new Error("No se pudo consultar el servidor."));
         };
 
         document.body.appendChild(script);
-
       });
     }
 
 
     // ==========================================
-    // 8. ENVIAR SOLICITUD AL SERVIDOR
+    // 8. ENVIAR SOLICITUD POST
     // ==========================================
 
     async function enviarSolicitud(datos) {
-
       await fetch(SCRIPT_URL, {
         method: "POST",
         mode: "no-cors",
-
         headers: {
           "Content-Type":
             "application/x-www-form-urlencoded;charset=UTF-8"
         },
-
         body: datos.toString()
       });
-
     }
 
 
     // ==========================================
-    // 9. ESPERAR RESULTADO DEL SERVIDOR
+    // 9. ESPERAR RESULTADO
     // ==========================================
 
     async function esperarResultado(accion, solicitud) {
-
       for (let intento = 0; intento < 15; intento++) {
 
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         try {
-
           const resultado = await consultarResultado(
             accion,
             solicitud
@@ -407,12 +357,7 @@
           }
 
         } catch (error) {
-
-          console.log(
-            "Esperando respuesta:",
-            error.message
-          );
-
+          console.log("Esperando respuesta:", error.message);
         }
       }
 
@@ -427,28 +372,20 @@
     // ==========================================
 
     async function validarDispositivo(usuario, dispositivo) {
-
       mostrar(
         "Sesión detectada.\n\n" +
         "Comprobando autorización del dispositivo..."
       );
 
       const idToken = await usuario.getIdToken(true);
-
       const solicitud = crypto.randomUUID();
 
       const datos = new URLSearchParams({
-
         action: "validar_dispositivo",
-
         idToken: idToken,
-
         idDispositivo: dispositivo.id,
-
         tokenDispositivo: dispositivo.token,
-
         solicitud: solicitud
-
       });
 
       await enviarSolicitud(datos);
@@ -458,36 +395,27 @@
         solicitud
       );
 
-
       if (!resultado || resultado.ok !== true) {
-
         mostrar(
           "No se pudo confirmar la autorización.\n\n" +
-
           (resultado?.mensaje ||
             "El servidor no pudo confirmar el dispositivo.") +
-
           "\n\nEl identificador y el token se conservan. Intenta nuevamente."
         );
 
         return;
       }
 
-
       if (resultado.autorizado !== true) {
-
         mostrar(
           "Acceso no autorizado.\n\n" +
-
           (resultado.mensaje ||
             "Este dispositivo no está autorizado.") +
-
           "\n\nContacta a coordinación."
         );
 
         return;
       }
-
 
       dispositivo.estado = "autorizado";
 
@@ -496,19 +424,13 @@
         JSON.stringify(dispositivo)
       );
 
-
       mostrar(
         "¡Dispositivo validado correctamente!\n\n" +
-
         "Correo: " + resultado.correo + "\n" +
-
         "Nombre: " + resultado.nombre + "\n" +
-
         "Teléfono: " + identificarTipoTelefono() +
-
         "\n\nEste teléfono continúa autorizado."
       );
-
     }
 
 
@@ -517,28 +439,20 @@
     // ==========================================
 
     async function vincularDispositivo(usuario, dispositivo) {
-
       mostrar(
         "Acceso institucional verificado.\n\n" +
         "Solicitando autorización del dispositivo..."
       );
 
       const idToken = await usuario.getIdToken(true);
-
       const solicitud = crypto.randomUUID();
 
       const datos = new URLSearchParams({
-
         action: "vincular_dispositivo",
-
         idToken: idToken,
-
         idDispositivo: dispositivo.id,
-
         tokenDispositivo: dispositivo.token,
-
         solicitud: solicitud
-
       });
 
       await enviarSolicitud(datos);
@@ -548,25 +462,20 @@
         solicitud
       );
 
-
       if (
         !resultado ||
         resultado.ok !== true ||
         resultado.autorizado !== true
       ) {
-
         mostrar(
           "No fue posible autorizar este dispositivo.\n\n" +
-
           (resultado?.mensaje ||
             "El servidor no pudo confirmar la solicitud.") +
-
           "\n\nEl identificador y el token se conservan."
         );
 
         return;
       }
-
 
       dispositivo.estado = "autorizado";
 
@@ -575,19 +484,13 @@
         JSON.stringify(dispositivo)
       );
 
-
       mostrar(
         "¡Dispositivo autorizado!\n\n" +
-
         "Correo: " + resultado.correo + "\n" +
-
         "Nombre: " + resultado.nombre + "\n" +
-
         "Teléfono: " + identificarTipoTelefono() +
-
         "\n\nLa vinculación se completó correctamente."
       );
-
     }
 
 
@@ -596,49 +499,31 @@
     // ==========================================
 
     async function procesarUsuario(usuario) {
-
       if (procesando) return;
 
       procesando = true;
-
       formulario.style.display = "none";
 
       try {
-
         const dispositivo = obtenerDispositivo();
 
         if (dispositivo.estado === "pendiente") {
-
-          await vincularDispositivo(
-            usuario,
-            dispositivo
-          );
-
+          await vincularDispositivo(usuario, dispositivo);
         } else {
-
-          await validarDispositivo(
-            usuario,
-            dispositivo
-          );
-
+          await validarDispositivo(usuario, dispositivo);
         }
 
       } catch (error) {
-
         console.error(error);
 
         mostrar(
           "No se pudo completar la comprobación.\n\n" +
-
           error.message +
-
           "\n\nLos datos locales del dispositivo se conservan."
         );
 
       } finally {
-
         procesando = false;
-
       }
     }
 
@@ -648,58 +533,35 @@
     // ==========================================
 
     botonEnviar.addEventListener("click", async () => {
-
       const correo = document
         .getElementById("correo")
         .value
         .trim()
         .toLowerCase();
 
-
       if (!correo || !correo.includes("@")) {
-
-        mostrar(
-          "Escribe un correo electrónico válido."
-        );
-
+        mostrar("Escribe un correo electrónico válido.");
         return;
       }
 
-
       botonEnviar.disabled = true;
-
       mostrar("Enviando enlace de acceso...");
 
-
       try {
+        await sendSignInLinkToEmail(auth, correo, {
+          url: URL_PAGINA,
+          handleCodeInApp: true
+        });
 
-        await sendSignInLinkToEmail(
-          auth,
-          correo,
-          {
-            url: URL_PAGINA,
-            handleCodeInApp: true
-          }
-        );
-
-
-        localStorage.setItem(
-          CLAVE_CORREO,
-          correo
-        );
-
+        localStorage.setItem(CLAVE_CORREO, correo);
 
         mostrar(
           "Enlace enviado correctamente.\n\n" +
-
           "Correo: " + correo +
-
           "\n\nAbre el enlace recibido desde este mismo navegador."
         );
 
-
       } catch (error) {
-
         console.error(error);
 
         mostrar(
@@ -708,11 +570,8 @@
         );
 
       } finally {
-
         botonEnviar.disabled = false;
-
       }
-
     });
 
 
@@ -721,41 +580,24 @@
     // ==========================================
 
     async function comprobarEnlace() {
-
-      if (
-        !isSignInWithEmailLink(
-          auth,
-          window.location.href
-        )
-      ) {
+      if (!isSignInWithEmailLink(auth, window.location.href)) {
         return;
       }
-
 
       let correo = localStorage.getItem(CLAVE_CORREO);
 
-
       if (!correo) {
-
         correo = window.prompt(
           "Confirma el correo al que recibiste el enlace:"
         );
-
       }
 
-
       if (!correo) {
-
-        mostrar(
-          "No se indicó el correo para completar el acceso."
-        );
-
+        mostrar("No se indicó el correo para completar el acceso.");
         return;
       }
 
-
       try {
-
         mostrar("Verificando enlace de acceso...");
 
         await signInWithEmailLink(
@@ -764,9 +606,7 @@
           window.location.href
         );
 
-
         localStorage.removeItem(CLAVE_CORREO);
-
 
         window.history.replaceState(
           {},
@@ -774,23 +614,16 @@
           URL_PAGINA
         );
 
-
-        mostrar(
-          "Acceso verificado. Comprobando dispositivo..."
-        );
-
+        mostrar("Acceso verificado. Comprobando dispositivo...");
 
       } catch (error) {
-
         console.error(error);
 
         mostrar(
           "No se pudo completar la autenticación.\n\n" +
           error.message
         );
-
       }
-
     }
 
 
@@ -799,30 +632,15 @@
     // ==========================================
 
     onAuthStateChanged(auth, usuario => {
-
       if (usuario) {
-
         procesarUsuario(usuario);
-
       } else {
-
         formulario.style.display = "block";
 
-        if (
-          !isSignInWithEmailLink(
-            auth,
-            window.location.href
-          )
-        ) {
-
-          mostrar(
-            "Inicia sesión con tu correo institucional."
-          );
-
+        if (!isSignInWithEmailLink(auth, window.location.href)) {
+          mostrar("Inicia sesión con tu correo institucional.");
         }
-
       }
-
     });
 
 
