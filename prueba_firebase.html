@@ -1,6 +1,7 @@
 
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -83,7 +84,9 @@
 </head>
 
 <body>
+
   <main class="contenedor">
+
     <h1>Acceso docente</h1>
     <p>Colegio Universitario de Yahualica</p>
     <p>Ingresa tu correo institucional para autorizar este dispositivo.</p>
@@ -104,9 +107,11 @@
     <div class="nota">
       Sistema de registro de llegada docente CUY
     </div>
+
   </main>
 
   <script type="module">
+
     import { initializeApp } from
       "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 
@@ -121,6 +126,7 @@
     } from
       "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
 
+
     const firebaseConfig = {
       apiKey: "AIzaSyAMLtZyqiUkME1HwiGSHOFF7wJ-UpmBbJI",
       authDomain: "checador-docente-cuy.firebaseapp.com",
@@ -130,6 +136,7 @@
       appId: "1:15127097699:web:308aae0b17e363ad5b2356",
       measurementId: "G-BP8YEFQDJE"
     };
+
 
     const URL_APPS_SCRIPT =
       "https://script.google.com/macros/s/AKfycbyXlKZuyW8NkhM8Jwut84LDVXCQIsx-8Fa0wZ8Jkcdo57s3ZqAnD9Q0IOXgJvw9AKXY/exec";
@@ -143,9 +150,16 @@
     const CLAVE_DISPOSITIVO = "checador_dispositivo_v1";
     const CLAVE_CORREO = "checador_correo_acceso";
 
+
+    // FIREBASE DISPONIBLE PARA TODAS LAS FUNCIONES
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+
     const campoCorreo = document.getElementById("correo");
     const boton = document.getElementById("btnAcceso");
     const mensaje = document.getElementById("mensaje");
+
 
     function mostrar(texto) {
       mensaje.textContent = texto;
@@ -177,6 +191,7 @@
              generarId().replace(/-/g, "");
     }
 
+
     function obtenerDispositivo(correo) {
       try {
         const datos = localStorage.getItem(CLAVE_DISPOSITIVO);
@@ -194,13 +209,16 @@
         }
 
         return null;
+
       } catch (error) {
         return null;
       }
     }
 
+
     function consultarServidor(accion, solicitud) {
       return new Promise((resolve, reject) => {
+
         const callback =
           "respuesta_" + Date.now() + "_" +
           Math.floor(Math.random() * 100000);
@@ -236,8 +254,10 @@
         };
 
         document.body.appendChild(script);
+
       });
     }
+
 
     async function enviarPOST(datos) {
       await fetch(URL_APPS_SCRIPT, {
@@ -250,8 +270,10 @@
       });
     }
 
+
     async function esperarResultado(accion, solicitud) {
       for (let intento = 0; intento < 12; intento++) {
+
         await new Promise(resolve => setTimeout(resolve, 1500));
 
         const respuesta = await consultarServidor(accion, solicitud);
@@ -275,6 +297,7 @@
         "El servidor no respondió a tiempo. Intenta nuevamente."
       );
     }
+
 
     async function validarDispositivo(usuario, dispositivo) {
       mostrar("Verificando autorización del dispositivo...");
@@ -306,6 +329,7 @@
         resultado.mensaje || "Este dispositivo no está autorizado."
       );
     }
+
 
     async function vincularDispositivo(usuario) {
       mostrar("Registrando este dispositivo...");
@@ -351,6 +375,7 @@
       window.location.replace(URL_REGISTRO);
     }
 
+
     async function procesarUsuario(usuario) {
       if (!usuario) return;
 
@@ -365,11 +390,13 @@
         } else {
           await vincularDispositivo(usuario);
         }
+
       } catch (error) {
         bloquear(false);
         mostrar(error.message || "Ocurrió un error durante el acceso.");
       }
     }
+
 
     boton.addEventListener("click", async () => {
       try {
@@ -401,6 +428,7 @@
         mostrar("No se pudo enviar el enlace: " + error.message);
       }
     });
+
 
     async function completarAcceso() {
       if (!isSignInWithEmailLink(auth, window.location.href)) {
@@ -442,11 +470,9 @@
       }
     }
 
+
     async function iniciar() {
       try {
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-
         await setPersistence(auth, browserLocalPersistence);
         await completarAcceso();
 
@@ -464,7 +490,10 @@
       }
     }
 
+
     iniciar();
+
   </script>
+
 </body>
 </html>
