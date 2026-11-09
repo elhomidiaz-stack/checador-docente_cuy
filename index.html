@@ -507,7 +507,7 @@ async function iniciar(usuario) {
     mostrar("Comprobando autorización del teléfono...");
 
     if (navigator.onLine) {
-      const validacion = await validarTelefono(usuario, dispositivo);
+      await validarTelefono(usuario, dispositivo);
 
       dispositivo.estado = "autorizado";
       localStorage.setItem(
