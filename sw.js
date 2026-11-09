@@ -2,10 +2,10 @@
 /*******************************************************
  * CHECADOR DOCENTE CUY
  * SERVICE WORKER
- * VERSIÓN 5
+ * VERSIÓN 6
  *******************************************************/
 
-const CACHE_VERSION = "checador-cuy-v5";
+const CACHE_VERSION = "checador-cuy-v6";
 const CACHE_FIREBASE = "checador-firebase-v1";
 
 const ARCHIVOS = [
