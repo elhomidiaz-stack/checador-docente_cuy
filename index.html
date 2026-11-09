@@ -71,7 +71,6 @@
 </head>
 
 <body>
-
 <main>
   <span class="etiqueta">REGISTRO INSTITUCIONAL</span>
   <h1>Checador CUY</h1>
@@ -97,8 +96,8 @@ import { initializeApp } from
 import {
   getAuth,
   onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
-
+} from
+  "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAMLtZyqiUkME1HwiGSHOFF7wJ-UpmBbJI",
@@ -109,7 +108,6 @@ const firebaseConfig = {
   appId: "1:15127097699:web:308aae0b17e363ad5b2356",
   measurementId: "G-BP8YEFQDJE"
 };
-
 
 const SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbyXlKZuyW8NkhM8Jwut84LDVXCQIsx-8Fa0wZ8Jkcdo57s3ZqAnD9Q0IOXgJvw9AKXY/exec";
@@ -175,6 +173,10 @@ function uuid() {
   return crypto.randomUUID();
 }
 
+function normalizarCorreo(correo) {
+  return String(correo || "").trim().toLowerCase();
+}
+
 function tipoTelefono() {
   const agente = navigator.userAgent || "";
 
@@ -184,7 +186,7 @@ function tipoTelefono() {
   return "Otro dispositivo";
 }
 
-function obtenerDispositivo() {
+function obtenerDispositivo(correo) {
   try {
     const texto = localStorage.getItem(CLAVE_DISPOSITIVO);
 
@@ -195,7 +197,8 @@ function obtenerDispositivo() {
     if (
       dispositivo.id &&
       dispositivo.token &&
-      dispositivo.estado === "autorizado"
+      dispositivo.estado === "autorizado" &&
+      normalizarCorreo(dispositivo.correo) === normalizarCorreo(correo)
     ) {
       return dispositivo;
     }
@@ -274,7 +277,6 @@ function abrirDB() {
   });
 }
 
-
 function guardarLocal(registro) {
   return new Promise((resolve, reject) => {
 
@@ -284,10 +286,10 @@ function guardarLocal(registro) {
 
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
 
   });
 }
-
 
 function buscarLocal(id) {
   return new Promise((resolve, reject) => {
@@ -307,8 +309,7 @@ function buscarLocal(id) {
   });
 }
 
-
-function obtenerPendientes() {
+function obtenerPendientes(correo) {
   return new Promise((resolve, reject) => {
 
     const tx = db.transaction("asistencias", "readonly");
@@ -316,8 +317,13 @@ function obtenerPendientes() {
     const solicitud = tx.objectStore("asistencias").getAll();
 
     solicitud.onsuccess = () => {
+      const correoActual = normalizarCorreo(correo);
+
       resolve(
-        solicitud.result.filter(registro => !registro.sincronizado)
+        solicitud.result.filter(registro =>
+          !registro.sincronizado &&
+          normalizarCorreo(registro.correo) === correoActual
+        )
       );
     };
 
@@ -337,9 +343,7 @@ function consultarServidor(accion, solicitud) {
 
   return new Promise((resolve, reject) => {
 
-    const callback =
-      "cuy_" + uuid().replace(/-/g, "");
-
+    const callback = "cuy_" + uuid().replace(/-/g, "");
     const script = document.createElement("script");
 
     let terminado = false;
@@ -361,7 +365,6 @@ function consultarServidor(accion, solicitud) {
 
     }, 12000);
 
-
     window[callback] = resultado => {
 
       if (terminado) return;
@@ -372,7 +375,6 @@ function consultarServidor(accion, solicitud) {
       resolve(resultado);
 
     };
-
 
     const parametros = new URLSearchParams({
       action: accion,
@@ -398,7 +400,6 @@ function consultarServidor(accion, solicitud) {
   });
 
 }
-
 
 async function enviarPOST(datos) {
 
@@ -473,8 +474,15 @@ async function esperarResultado(accion, solicitud) {
 
 async function validarTelefono(usuario, dispositivo) {
 
-  const idToken = await usuario.getIdToken(true);
+  const correo = normalizarCorreo(usuario.email);
 
+  if (normalizarCorreo(dispositivo.correo) !== correo) {
+    throw new Error(
+      "El dispositivo no pertenece a la cuenta que inició sesión."
+    );
+  }
+
+  const idToken = await usuario.getIdToken(true);
   const solicitud = uuid();
 
   const datos = new URLSearchParams({
@@ -499,7 +507,6 @@ async function validarTelefono(usuario, dispositivo) {
     );
   }
 
-  // Registrar que el dispositivo obtuvo una validación real.
   dispositivo.autorizacionOffline = true;
   dispositivo.ultimaValidacion = Date.now();
 
@@ -523,8 +530,16 @@ async function sincronizarRegistro(
     throw new Error("No hay conexión para sincronizar.");
   }
 
-  const idToken = await usuario.getIdToken(true);
+  if (
+    normalizarCorreo(registro.correo) !==
+    normalizarCorreo(usuario.email)
+  ) {
+    throw new Error(
+      "El registro pendiente pertenece a otra cuenta."
+    );
+  }
 
+  const idToken = await usuario.getIdToken(true);
   const solicitud = uuid();
 
   const datos = new URLSearchParams({
@@ -559,10 +574,19 @@ async function sincronizarRegistro(
 
 async function registrarLlegada(usuario, dispositivo) {
 
+  const correo = normalizarCorreo(usuario.email);
   const idRegistro = dispositivo.id + fechaMexico();
 
   let registro = await buscarLocal(idRegistro);
 
+  if (
+    registro &&
+    normalizarCorreo(registro.correo) !== correo
+  ) {
+    throw new Error(
+      "El registro local no corresponde a la cuenta actual."
+    );
+  }
 
   // Ya fue sincronizada anteriormente.
   if (registro && registro.sincronizado) {
@@ -570,7 +594,7 @@ async function registrarLlegada(usuario, dispositivo) {
     mostrar("La asistencia de hoy ya fue procesada.");
 
     mostrarDetalle(
-      "Correo: " + usuario.email +
+      "Correo: " + correo +
       "\nFecha: " + fechaLegible(registro.timestamp) +
       "\nHora: " + horaLegible(registro.timestamp) +
       "\nEstado: Enviado al servidor"
@@ -579,13 +603,12 @@ async function registrarLlegada(usuario, dispositivo) {
     return;
   }
 
-
   // Crear registro local si todavía no existe.
   if (!registro) {
 
     registro = {
       idRegistro,
-      correo: usuario.email,
+      correo,
       timestamp: Date.now(),
       tipoDispositivo: tipoTelefono(),
       sincronizado: false
@@ -595,14 +618,13 @@ async function registrarLlegada(usuario, dispositivo) {
 
   }
 
-
   // Sin conexión: conservar llegada localmente.
   if (!navigator.onLine) {
 
     mostrar("Asistencia guardada en este teléfono.");
 
     mostrarDetalle(
-      "Correo: " + usuario.email +
+      "Correo: " + correo +
       "\nFecha: " + fechaLegible(registro.timestamp) +
       "\nHora: " + horaLegible(registro.timestamp) +
       "\nEstado: Pendiente de sincronización" +
@@ -611,7 +633,6 @@ async function registrarLlegada(usuario, dispositivo) {
 
     return;
   }
-
 
   // Con conexión: sincronizar.
   mostrar("Registrando llegada en Google Sheets...");
@@ -622,16 +643,14 @@ async function registrarLlegada(usuario, dispositivo) {
     registro
   );
 
-
   if (resultado.duplicado) {
     mostrar("La asistencia ya estaba registrada.");
   } else {
     mostrar("¡Asistencia registrada correctamente!");
   }
 
-
   mostrarDetalle(
-    "Correo: " + usuario.email +
+    "Correo: " + correo +
     "\nFecha: " +
     (resultado.fecha || fechaLegible(registro.timestamp)) +
     "\nHora: " +
@@ -651,7 +670,7 @@ async function registrarLlegada(usuario, dispositivo) {
 
 async function sincronizarPendientes(usuario, dispositivo) {
 
-  const pendientes = await obtenerPendientes();
+  const pendientes = await obtenerPendientes(usuario.email);
 
   for (const registro of pendientes) {
 
@@ -669,10 +688,7 @@ async function sincronizarPendientes(usuario, dispositivo) {
         registro
       );
 
-      console.log(
-        "Asistencia sincronizada:",
-        resultado
-      );
+      console.log("Asistencia sincronizada:", resultado);
 
     } catch (error) {
 
@@ -681,7 +697,6 @@ async function sincronizarPendientes(usuario, dispositivo) {
         error
       );
 
-      // Conservar el registro para un nuevo intento.
       break;
 
     }
@@ -716,11 +731,15 @@ async function iniciar(usuario) {
       return;
     }
 
+    if (!usuario.email) {
+      throw new Error(
+        "La cuenta de Firebase no tiene un correo electrónico disponible."
+      );
+    }
 
     db = await abrirDB();
 
-    const dispositivo = obtenerDispositivo();
-
+    const dispositivo = obtenerDispositivo(usuario.email);
 
     if (!dispositivo) {
 
@@ -735,24 +754,19 @@ async function iniciar(usuario) {
       return;
     }
 
-
     // CON INTERNET
     if (navigator.onLine) {
 
       mostrar("Comprobando autorización del teléfono...");
 
-      // Primero validar en el servidor.
       await validarTelefono(usuario, dispositivo);
 
-      // Después sincronizar los registros pendientes.
       await sincronizarPendientes(usuario, dispositivo);
 
-      // Finalmente registrar la llegada del día.
       await registrarLlegada(usuario, dispositivo);
 
       return;
     }
-
 
     // SIN INTERNET
     if (dispositivo.autorizacionOffline !== true) {
@@ -766,9 +780,7 @@ async function iniciar(usuario) {
       return;
     }
 
-
     await registrarLlegada(usuario, dispositivo);
-
 
   } catch (error) {
 
