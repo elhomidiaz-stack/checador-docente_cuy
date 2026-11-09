@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -142,14 +143,9 @@
     const CLAVE_DISPOSITIVO = "checador_dispositivo_v1";
     const CLAVE_CORREO = "checador_correo_acceso";
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-
     const campoCorreo = document.getElementById("correo");
     const boton = document.getElementById("btnAcceso");
     const mensaje = document.getElementById("mensaje");
-
-    await setPersistence(auth, browserLocalPersistence);
 
     function mostrar(texto) {
       mensaje.textContent = texto;
@@ -181,7 +177,7 @@
              generarId().replace(/-/g, "");
     }
 
-    function obtenerDispositivo() {
+    function obtenerDispositivo(correo) {
       try {
         const datos = localStorage.getItem(CLAVE_DISPOSITIVO);
         if (!datos) return null;
@@ -191,7 +187,8 @@
         if (
           dispositivo.id &&
           dispositivo.token &&
-          dispositivo.estado === "autorizado"
+          dispositivo.estado === "autorizado" &&
+          dispositivo.correo === correo.trim().toLowerCase()
         ) {
           return dispositivo;
         }
@@ -317,6 +314,7 @@
       const dispositivo = {
         id: generarId(),
         token: generarToken(),
+        correo: usuario.email.trim().toLowerCase(),
         estado: "pendiente"
       };
 
@@ -359,7 +357,8 @@
       try {
         mostrar("Verificando tu cuenta institucional...");
 
-        const dispositivo = obtenerDispositivo();
+        const correo = usuario.email.trim().toLowerCase();
+        const dispositivo = obtenerDispositivo(correo);
 
         if (dispositivo) {
           await validarDispositivo(usuario, dispositivo);
@@ -443,15 +442,29 @@
       }
     }
 
-    await completarAcceso();
+    async function iniciar() {
+      try {
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
 
-    onAuthStateChanged(auth, async usuario => {
-      if (usuario) {
-        await procesarUsuario(usuario);
-      } else if (!isSignInWithEmailLink(auth, window.location.href)) {
-        mostrar("Escribe tu correo institucional para comenzar.");
+        await setPersistence(auth, browserLocalPersistence);
+        await completarAcceso();
+
+        onAuthStateChanged(auth, async usuario => {
+          if (usuario) {
+            await procesarUsuario(usuario);
+          } else if (!isSignInWithEmailLink(auth, window.location.href)) {
+            mostrar("Escribe tu correo institucional para comenzar.");
+          }
+        });
+
+      } catch (error) {
+        bloquear(false);
+        mostrar("No se pudo iniciar el sistema: " + error.message);
       }
-    });
+    }
+
+    iniciar();
   </script>
 </body>
 </html>
