@@ -1,102 +1,109 @@
 
-const CACHE = 'checador-docente-v1';
+const CACHE_VERSION = "checador-cuy-v2";
 
 const ARCHIVOS = [
-  './',
-  './index.html',
-  './manifest.json'
+  "./",
+  "./index.html",
+  "./manifest.json"
 ];
 
-// INSTALAR Y GUARDAR ARCHIVOS
-self.addEventListener('install', event => {
-
+// INSTALACIÓN: guardar archivos básicos.
+self.addEventListener("install", event => {
   event.waitUntil(
-
-    caches.open(CACHE).then(cache => {
-
-      return cache.addAll(ARCHIVOS);
-
-    })
-
+    caches.open(CACHE_VERSION)
+      .then(cache => cache.addAll(ARCHIVOS))
+      .then(() => self.skipWaiting())
   );
-
-  self.skipWaiting();
-
 });
 
-
-// ACTIVAR APLICACIÓN
-self.addEventListener('activate', event => {
-
+// ACTIVACIÓN: eliminar versiones anteriores.
+self.addEventListener("activate", event => {
   event.waitUntil(
-
-    caches.keys().then(keys =>
-
-      Promise.all(
-
-        keys
-          .filter(key => key !== CACHE)
-          .map(key => caches.delete(key))
-
-      )
-
-    )
-
+    caches.keys()
+      .then(claves => Promise.all(
+        claves
+          .filter(clave => clave !== CACHE_VERSION)
+          .map(clave => caches.delete(clave))
+      ))
+      .then(() => self.clients.claim())
   );
-
-  self.clients.claim();
-
 });
 
+// NAVEGACIÓN Y ARCHIVOS LOCALES.
+self.addEventListener("fetch", event => {
+  const solicitud = event.request;
 
-// FUNCIONAMIENTO SIN INTERNET
-self.addEventListener('fetch', event => {
+  if (solicitud.method !== "GET") return;
 
-  if (event.request.method !== 'GET') return;
+  const url = new URL(solicitud.url);
 
+  // No interceptar servicios externos, como Firebase.
+  if (url.origin !== self.location.origin) return;
+
+  // Para la navegación, intentar red y después caché.
+  if (solicitud.mode === "navigate") {
+    event.respondWith(
+      fetch(solicitud)
+        .then(respuesta => {
+          if (respuesta.ok) {
+            const copia = respuesta.clone();
+
+            caches.open(CACHE_VERSION)
+              .then(cache => cache.put("./index.html", copia));
+          }
+
+          return respuesta;
+        })
+        .catch(async () => {
+          const guardado = await caches.match("./index.html");
+
+          if (guardado) return guardado;
+
+          return new Response(
+            "El checador no está disponible sin conexión.",
+            {
+              status: 503,
+              headers: {
+                "Content-Type": "text/plain; charset=utf-8"
+              }
+            }
+          );
+        })
+    );
+
+    return;
+  }
+
+  // Para los archivos locales, usar caché y actualizar desde red.
   event.respondWith(
+    caches.match(solicitud).then(async guardado => {
+      const solicitudRed = fetch(solicitud)
+        .then(respuesta => {
+          if (respuesta.ok) {
+            const copia = respuesta.clone();
 
-    fetch(event.request)
+            caches.open(CACHE_VERSION)
+              .then(cache => cache.put(solicitud, copia));
+          }
 
-      .then(response => {
-
-        if (
-          response.ok &&
-          new URL(event.request.url).origin === self.location.origin
-        ) {
-
-          const copia = response.clone();
-
-          caches.open(CACHE).then(cache => {
-
-            cache.put(event.request, copia);
-
-          });
-
-        }
-
-        return response;
-
-      })
-
-      .catch(async () => {
-
-        const guardado = await caches.match(event.request);
-
-        if (guardado) return guardado;
-
-        if (event.request.mode === 'navigate') {
-
-          return caches.match('./index.html');
-
-        }
-
-        return new Response('Sin conexión', {
-          status: 503
+          return respuesta;
         });
 
-      })
+      if (guardado) {
+        event.waitUntil(solicitudRed.catch(() => {}));
+        return guardado;
+      }
 
+      try {
+        return await solicitudRed;
+      } catch (error) {
+        return new Response("Sin conexión", {
+          status: 503,
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8"
+          }
+        });
+      }
+    })
   );
-
 });
