@@ -86,35 +86,6 @@
 
 <script type="module">
 
-/* LIMPIAR SERVICE WORKERS ANTERIORES */
-
-async function limpiarServiceWorkers() {
-  try {
-    if ("serviceWorker" in navigator) {
-      const registros =
-        await navigator.serviceWorker.getRegistrations();
-
-      await Promise.all(
-        registros.map(registro => registro.unregister())
-      );
-    }
-
-    if ("caches" in window) {
-      const nombres = await caches.keys();
-
-      await Promise.all(
-        nombres.map(nombre => caches.delete(nombre))
-      );
-    }
-
-    console.log("Service Workers anteriores desactivados.");
-  } catch (error) {
-    console.error("Error limpiando caché:", error);
-  }
-}
-
-await limpiarServiceWorkers();
-
 /* FIREBASE */
 
 import { initializeApp } from
@@ -138,7 +109,9 @@ const firebaseConfig = {
 const SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbyXlKZuyW8NkhM8Jwut84LDVXCQIsx-8Fa0wZ8Jkcdo57s3ZqAnD9Q0IOXgJvw9AKXY/exec";
 
-const URL_ACCESO = "./prueba_firebase.html";
+const URL_ACCESO =
+  "https://elhomidiaz-stack.github.io/checador-docente_cuy/prueba_firebase.html";
+
 const CLAVE_DISPOSITIVO = "checador_dispositivo_v1";
 const DB_NOMBRE = "ChecadorCUY";
 const DB_VERSION = 2;
@@ -151,6 +124,28 @@ const detalle = document.getElementById("detalle");
 
 let db = null;
 let procesando = false;
+
+
+/* SERVICE WORKER */
+
+async function registrarServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+
+  try {
+    await navigator.serviceWorker.register("./sw.js", {
+      scope: "./"
+    });
+
+    console.log("Service Worker registrado.");
+  } catch (error) {
+    console.error("No se pudo registrar el Service Worker:", error);
+  }
+}
+
+registrarServiceWorker();
+
+
+/* FUNCIONES GENERALES */
 
 function mostrar(mensaje) {
   estado.textContent = mensaje;
@@ -195,6 +190,7 @@ function obtenerDispositivo() {
 
   return null;
 }
+
 
 /* BASE DE DATOS LOCAL */
 
@@ -251,7 +247,8 @@ function obtenerPendientes() {
   });
 }
 
-/* FECHA LOCAL DE MÉXICO */
+
+/* FECHA Y HORA DE MÉXICO */
 
 function fechaMexico() {
   const partes = new Intl.DateTimeFormat("en-CA", {
@@ -280,6 +277,7 @@ function horaLegible(timestamp) {
   });
 }
 
+
 /* CONSULTA DE RESULTADOS DEL SERVIDOR */
 
 function consultarServidor(accion, solicitud) {
@@ -302,7 +300,7 @@ function consultarServidor(accion, solicitud) {
       limpiar();
 
       reject(new Error("Tiempo de espera agotado."));
-    }, 10000);
+    }, 12000);
 
     window[callback] = resultado => {
       if (terminado) return;
@@ -334,6 +332,7 @@ function consultarServidor(accion, solicitud) {
   });
 }
 
+
 async function enviarPOST(datos) {
   await fetch(SCRIPT_URL, {
     method: "POST",
@@ -346,6 +345,7 @@ async function enviarPOST(datos) {
   });
 }
 
+
 async function esperarResultado(accion, solicitud) {
   for (let i = 0; i < 20; i++) {
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -354,17 +354,33 @@ async function esperarResultado(accion, solicitud) {
       const resultado =
         await consultarServidor(accion, solicitud);
 
-      if (resultado?.pendiente) continue;
+      if (resultado?.pendiente === true) continue;
 
-      if (resultado) return resultado;
+      if (resultado?.ok === false) {
+        throw new Error(
+          resultado.mensaje || "El servidor rechazó la solicitud."
+        );
+      }
+
+      if (resultado?.ok === true) {
+        return resultado;
+      }
 
     } catch (error) {
+      if (
+        error.message !== "No se pudo consultar el servidor." &&
+        error.message !== "Tiempo de espera agotado."
+      ) {
+        throw error;
+      }
+
       console.log(error.message);
     }
   }
 
-  throw new Error("El servidor no confirmó el registro.");
+  throw new Error("El servidor no confirmó la operación.");
 }
+
 
 /* VALIDAR EL TELÉFONO */
 
@@ -388,18 +404,15 @@ async function validarTelefono(usuario, dispositivo) {
     solicitud
   );
 
-  if (
-    !resultado ||
-    resultado.ok !== true ||
-    resultado.autorizado !== true
-  ) {
+  if (resultado.autorizado !== true) {
     throw new Error(
-      resultado?.mensaje || "El teléfono no está autorizado."
+      resultado.mensaje || "El teléfono no está autorizado."
     );
   }
 
   return resultado;
 }
+
 
 /* ENVIAR ASISTENCIA A GOOGLE SHEETS */
 
@@ -437,6 +450,7 @@ async function sincronizarRegistro(usuario, dispositivo, registro) {
 
   return resultado;
 }
+
 
 /* CREAR ASISTENCIA AUTOMÁTICAMENTE */
 
@@ -503,13 +517,14 @@ async function registrarLlegada(usuario, dispositivo) {
     "\nFecha: " +
     (resultado.fecha || fechaLegible(registro.timestamp)) +
     "\nHora: " +
-    (resultado.hora || resultado.horaOriginal || horaLegible(registro.timestamp)) +
+    (resultado.hora || horaLegible(registro.timestamp)) +
     "\nDispositivo: " + tipoTelefono() +
     "\nConsecutivo: " +
     (resultado.consecutivo || "Ya existente") +
     "\nEstado: Confirmado por Google Sheets"
   );
 }
+
 
 /* SINCRONIZAR REGISTROS PENDIENTES */
 
@@ -524,13 +539,14 @@ async function sincronizarPendientes(usuario, dispositivo) {
     try {
       await sincronizarRegistro(usuario, dispositivo, registro);
     } catch (error) {
-      console.error("Pendiente:", error);
+      console.error("Asistencia pendiente:", error);
       break;
     }
   }
 }
 
-/* INICIO */
+
+/* INICIO DEL SISTEMA */
 
 async function iniciar(usuario) {
   if (procesando) return;
@@ -566,17 +582,10 @@ async function iniciar(usuario) {
       return;
     }
 
-    mostrar("Comprobando autorización del teléfono...");
-
     if (navigator.onLine) {
+      mostrar("Comprobando autorización del teléfono...");
+
       await validarTelefono(usuario, dispositivo);
-
-      dispositivo.estado = "autorizado";
-
-      localStorage.setItem(
-        CLAVE_DISPOSITIVO,
-        JSON.stringify(dispositivo)
-      );
 
       await sincronizarPendientes(usuario, dispositivo);
 
@@ -598,7 +607,13 @@ async function iniciar(usuario) {
   }
 }
 
+
+/* ESCUCHAR SESIÓN */
+
 onAuthStateChanged(auth, iniciar);
+
+
+/* RECUPERAR CONEXIÓN */
 
 window.addEventListener("online", async () => {
   if (auth.currentUser && !procesando) {
