@@ -3,410 +3,566 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Prueba de acceso - Checador CUY</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#171717">
+  <title>Prueba de dispositivos - Checador CUY</title>
 
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f1f5f9;
-      color: #1e293b;
-      padding: 25px;
-    }
-
-    main {
-      max-width: 430px;
-      margin: 40px auto;
-      background: white;
-      padding: 25px;
-      border-radius: 15px;
-    }
-
-    input, button {
-      width: 100%;
-      padding: 14px;
-      margin-top: 12px;
+    * {
       box-sizing: border-box;
     }
 
-    button {
-      background: #1e40af;
-      color: white;
-      border: 0;
+    body {
+      margin: 0;
+      padding: 24px;
+      min-height: 100vh;
+      background: #171717;
+      color: #f5f5f5;
+      font-family: Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .contenedor {
+      width: 100%;
+      max-width: 440px;
+      padding: 28px;
+      background: #242424;
+      border: 1px solid #414141;
+      border-radius: 16px;
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 25px;
+    }
+
+    p {
+      color: #c9c9c9;
+      line-height: 1.5;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px;
+      margin: 12px 0;
+      border: 1px solid #555;
       border-radius: 8px;
+      background: #171717;
+      color: white;
+      font-size: 16px;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 8px;
+      background: #d5a0b9;
+      color: #171717;
+      font-size: 16px;
+      font-weight: bold;
       cursor: pointer;
     }
 
     button:disabled {
       opacity: .5;
-      cursor: wait;
+      cursor: not-allowed;
     }
 
     #estado {
-      margin-top: 20px;
-      padding: 12px;
-      background: #eff6ff;
+      margin-top: 22px;
+      padding: 14px;
+      border-radius: 8px;
+      background: #333;
+      white-space: pre-wrap;
       overflow-wrap: anywhere;
       line-height: 1.5;
-      border-radius: 8px;
+    }
+
+    .pequeno {
+      margin-top: 20px;
+      font-size: 12px;
+      color: #999;
     }
   </style>
 </head>
 
 <body>
+  <main class="contenedor">
+    <h1>Checador CUY</h1>
 
-<main>
-  <h2>Prueba de acceso</h2>
-  <p>Checador Docente CUY</p>
+    <p>
+      Prueba de autenticación institucional y autorización
+      de dispositivos móviles.
+    </p>
 
-  <input
-    id="correo"
-    type="email"
-    placeholder="Tu correo institucional"
-    autocomplete="email"
-  >
+    <div id="formulario">
+      <label for="correo">Correo institucional</label>
+      <input
+        type="email"
+        id="correo"
+        placeholder="docente@colegiodeyahualica.edu.mx"
+        autocomplete="email"
+      >
 
-  <button id="enviar">
-    Enviar enlace de acceso
-  </button>
+      <button id="btnEnviar">
+        Enviar enlace de acceso
+      </button>
+    </div>
 
-  <div id="estado">
-    Esperando...
-  </div>
-</main>
+    <div id="estado">
+      Esperando autenticación...
+    </div>
 
+    <p class="pequeno">
+      Colegio Universitario de Yahualica · Sistema de asistencia docente
+    </p>
+  </main>
 
-<script type="module">
+  <script type="module">
+    import { initializeApp } from
+      "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 
-  import { initializeApp } from
-    "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
+    import {
+      getAuth,
+      sendSignInLinkToEmail,
+      isSignInWithEmailLink,
+      signInWithEmailLink,
+      onAuthStateChanged
+    } from
+      "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
 
-  import {
-    getAuth,
-    sendSignInLinkToEmail,
-    isSignInWithEmailLink,
-    signInWithEmailLink
-  } from
-    "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
+    // ----------------------------------------
+    // 1. CONFIGURACIÓN FIREBASE
+    // ----------------------------------------
 
+    const firebaseConfig = {
+      apiKey: "AIzaSyAMLtZyqiUkME1HwiGSHOFFw7j-UpmBbJI",
+      authDomain: "checador-docente-cuy.firebaseapp.com",
+      projectId: "checador-docente-cuy",
+      storageBucket: "checador-docente-cuy.firebasestorage.app",
+      messagingSenderId: "15127097699",
+      appId: "1:15127097699:web:308aae0b17e363ad5b2356",
+      measurementId: "G-BP8YEFQDJE"
+    };
 
-  /***********************
-   * CONFIGURACIÓN
-   ***********************/
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyAMLtZyqiUkME1HwiGSHOFFw7j-UpmBbJI",
-    authDomain: "checador-docente-cuy.firebaseapp.com",
-    projectId: "checador-docente-cuy",
-    storageBucket: "checador-docente-cuy.firebasestorage.app",
-    messagingSenderId: "15127097699",
-    appId: "1:15127097699:web:308aae0b17e363ad5b2356",
-    measurementId: "G-BP8YEFQDJE"
-  };
+    // ----------------------------------------
+    // 2. CONFIGURACIÓN DEL SISTEMA
+    // ----------------------------------------
 
-  const SCRIPT_URL =
-    "https://script.google.com/macros/s/AKfycbzRJzsDDnGsaXzC4NSm0iQMzs6veZtpR-OIZfKkDhZX38r3q8PGZ3U9aoAU56SIIej-/exec";
+    const SCRIPT_URL =
+      "https://script.google.com/macros/s/AKfycbzRJzsDDnGsaXzC4NSm0iQMzs6veZtpR-OIZfKkDhZX38r3q8PGZ3U9aoAU56SIIej-/exec";
 
-  const URL_PAGINA =
-    "https://elhomidiaz-stack.github.io/checador-docente_cuy/prueba_firebase.html";
+    const URL_PAGINA =
+      "https://elhomidiaz-stack.github.io/checador-docente_cuy/prueba_firebase.html";
 
-  const CLAVE =
-    "firebase_correo_prueba";
+    const CLAVE_CORREO = "firebase_correo_prueba";
+    const CLAVE_DISPOSITIVO = "checador_dispositivo_v1";
 
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
+    const estado = document.getElementById("estado");
+    const formulario = document.getElementById("formulario");
+    const botonEnviar = document.getElementById("btnEnviar");
 
-  const estado = document.getElementById("estado");
-  const boton = document.getElementById("enviar");
-  const campoCorreo = document.getElementById("correo");
+    let procesandoVinculacion = false;
 
-  const configuracionEnlace = {
-    url: URL_PAGINA,
-    handleCodeInApp: true
-  };
-
-
-  /***********************
-   * MOSTRAR ESTADO
-   ***********************/
-
-  function mostrar(mensaje) {
-    estado.textContent = mensaje;
-  }
-
-
-  /***********************
-   * ENVIAR ENLACE FIREBASE
-   ***********************/
-
-  boton.addEventListener("click", async () => {
-
-    const correo = campoCorreo.value
-      .trim()
-      .toLowerCase();
-
-    if (!correo) {
-      mostrar("Escribe tu correo institucional.");
-      return;
+    function mostrar(mensaje) {
+      estado.textContent = mensaje;
     }
 
-    try {
+    // ----------------------------------------
+    // 3. ENVIAR ENLACE DE ACCESO
+    // ----------------------------------------
 
-      boton.disabled = true;
+    botonEnviar.addEventListener("click", async () => {
+      const correo = document
+        .getElementById("correo")
+        .value.trim()
+        .toLowerCase();
 
+      if (!correo || !correo.includes("@")) {
+        mostrar("Escribe un correo electrónico válido.");
+        return;
+      }
+
+      botonEnviar.disabled = true;
       mostrar("Enviando enlace de acceso...");
 
-      await sendSignInLinkToEmail(
-        auth,
-        correo,
-        configuracionEnlace
-      );
+      try {
+        const configuracionEnlace = {
+          url: URL_PAGINA,
+          handleCodeInApp: true
+        };
 
-      localStorage.setItem(CLAVE, correo);
-
-      mostrar(
-        "Enlace enviado correctamente. Revisa tu correo electrónico."
-      );
-
-    } catch (error) {
-
-      mostrar(
-        "Error: " + error.code + " — " + error.message
-      );
-
-    } finally {
-
-      boton.disabled = false;
-
-    }
-
-  });
-
-
-  /***********************
-   * CONSULTAR RESULTADO
-   * MEDIANTE JSONP
-   ***********************/
-
-  function consultarResultado(solicitud) {
-
-    return new Promise((resolve, reject) => {
-
-      const callback =
-        "cb_" +
-        crypto.randomUUID().replace(/-/g, "");
-
-      const script = document.createElement("script");
-
-      let terminado = false;
-
-      const limpiar = () => {
-
-        if (terminado) return;
-
-        terminado = true;
-
-        delete window[callback];
-
-        script.remove();
-
-      };
-
-      window[callback] = (resultado) => {
-
-        limpiar();
-        resolve(resultado);
-
-      };
-
-      script.onerror = () => {
-
-        limpiar();
-
-        reject(
-          new Error("No se pudo consultar el resultado.")
+        await sendSignInLinkToEmail(
+          auth,
+          correo,
+          configuracionEnlace
         );
 
-      };
+        localStorage.setItem(CLAVE_CORREO, correo);
 
-      const parametros = new URLSearchParams({
-        action: "resultado_verificacion",
-        id: solicitud,
-        callback: callback
+        mostrar(
+          "Enlace enviado correctamente a:\n" +
+          correo +
+          "\n\nAbre tu correo y pulsa el enlace para continuar."
+        );
+
+      } catch (error) {
+        console.error(error);
+
+        mostrar(
+          "No se pudo enviar el enlace.\n\n" +
+          error.message
+        );
+
+      } finally {
+        botonEnviar.disabled = false;
+      }
+    });
+
+    // ----------------------------------------
+    // 4. GENERAR CREDENCIALES DEL DISPOSITIVO
+    // ----------------------------------------
+
+    function generarTextoAleatorio(bytes) {
+      const valores = new Uint8Array(bytes);
+      crypto.getRandomValues(valores);
+
+      let texto = "";
+
+      valores.forEach(valor => {
+        texto += String.fromCharCode(valor);
       });
 
-      script.src =
-        SCRIPT_URL + "?" + parametros.toString();
+      return btoa(texto)
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/g, "");
+    }
 
-      document.body.appendChild(script);
+    function obtenerDispositivo() {
+      const guardado = localStorage.getItem(CLAVE_DISPOSITIVO);
 
-      setTimeout(() => {
+      if (guardado) {
+        try {
+          const dispositivo = JSON.parse(guardado);
 
-        if (!terminado) {
+          if (
+            dispositivo.id &&
+            dispositivo.token &&
+            dispositivo.estado
+          ) {
+            return dispositivo;
+          }
+        } catch (error) {
+          console.error("No se pudo leer el dispositivo:", error);
+        }
+      }
 
+      const dispositivo = {
+        id: generarTextoAleatorio(24),
+        token: generarTextoAleatorio(32),
+        estado: "pendiente"
+      };
+
+      localStorage.setItem(
+        CLAVE_DISPOSITIVO,
+        JSON.stringify(dispositivo)
+      );
+
+      return dispositivo;
+    }
+
+    function identificarTipoTelefono() {
+      const agente = navigator.userAgent || "";
+
+      if (/iPhone|iPad|iPod/i.test(agente)) {
+        return "iPhone";
+      }
+
+      if (/Android/i.test(agente)) {
+        return "Android";
+      }
+
+      return "Otro dispositivo";
+    }
+
+    // ----------------------------------------
+    // 5. CONSULTAR RESULTADO EN APPS SCRIPT
+    // ----------------------------------------
+
+    function consultarResultado(accion, solicitud) {
+      return new Promise((resolve, reject) => {
+        const callback =
+          "respuesta_" +
+          crypto.randomUUID().replace(/-/g, "");
+
+        const script = document.createElement("script");
+
+        let terminado = false;
+
+        const limpiar = () => {
+          if (script.parentNode) {
+            script.parentNode.removeChild(script);
+          }
+
+          delete window[callback];
+        };
+
+        const temporizador = setTimeout(() => {
+          if (terminado) return;
+
+          terminado = true;
           limpiar();
 
-          reject(
-            new Error("La consulta tardó demasiado.")
+          reject(new Error("Tiempo de espera agotado."));
+        }, 10000);
+
+        window[callback] = resultado => {
+          if (terminado) return;
+
+          terminado = true;
+          clearTimeout(temporizador);
+          limpiar();
+
+          resolve(resultado);
+        };
+
+        const parametros = new URLSearchParams({
+          action: accion,
+          id: solicitud,
+          callback: callback
+        });
+
+        script.src = SCRIPT_URL + "?" + parametros.toString();
+
+        script.onerror = () => {
+          if (terminado) return;
+
+          terminado = true;
+          clearTimeout(temporizador);
+          limpiar();
+
+          reject(new Error("No se pudo consultar Apps Script."));
+        };
+
+        document.body.appendChild(script);
+      });
+    }
+
+    // ----------------------------------------
+    // 6. SOLICITAR VINCULACIÓN DEL TELÉFONO
+    // ----------------------------------------
+
+    async function vincularDispositivo(usuario) {
+      if (procesandoVinculacion) return;
+
+      procesandoVinculacion = true;
+
+      try {
+        const dispositivo = obtenerDispositivo();
+
+        if (dispositivo.estado === "autorizado") {
+          mostrar(
+            "Acceso verificado.\n\n" +
+            "Correo: " + usuario.email + "\n" +
+            "Dispositivo: " + identificarTipoTelefono() + "\n\n" +
+            "Este teléfono ya cuenta con credenciales locales " +
+            "de vinculación."
           );
 
+          return;
         }
 
-      }, 10000);
-
-    });
-
-  }
-
-
-  /***********************
-   * ENVIAR IDENTIDAD A APPS SCRIPT
-   ***********************/
-
-  async function verificarEnGoogleSheets(usuario) {
-
-    mostrar("Comprobando autorización en la escuela...");
-
-    const idToken = await usuario.getIdToken(true);
-
-    const solicitud = crypto
-      .randomUUID()
-      .replace(/-/g, "");
-
-    const datos = new URLSearchParams();
-
-    datos.append("action", "verificar_docente");
-    datos.append("idToken", idToken);
-    datos.append("solicitud", solicitud);
-
-    // Se utiliza no-cors para enviar el POST simple.
-    // El navegador no permite leer directamente su respuesta.
-    // La confirmación se consulta por separado.
-
-    await fetch(SCRIPT_URL, {
-      method: "POST",
-      mode: "no-cors",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
-      },
-      body: datos.toString()
-    });
-
-    // Esperar el procesamiento y consultar el resultado.
-
-    for (let intento = 0; intento < 10; intento++) {
-
-      await new Promise(resolve =>
-        setTimeout(resolve, 1200)
-      );
-
-      const resultado =
-        await consultarResultado(solicitud);
-
-      if (resultado && resultado.pendiente) {
-        continue;
-      }
-
-      if (resultado && resultado.autorizado === true) {
-
         mostrar(
-          "¡ACCESO AUTORIZADO!\n\n" +
-          "Docente: " + resultado.nombre + "\n" +
-          "Correo: " + resultado.correo + "\n\n" +
-          "Firebase y Google Sheets reconocen correctamente esta cuenta."
+          "Correo verificado.\n\n" +
+          "Preparando autorización del teléfono..."
         );
 
+        const idToken = await usuario.getIdToken(true);
+
+        const solicitud = crypto.randomUUID();
+
+        const datos = new URLSearchParams({
+          action: "vincular_dispositivo",
+          idToken: idToken,
+          idDispositivo: dispositivo.id,
+          tokenDispositivo: dispositivo.token,
+          solicitud: solicitud
+        });
+
+        // El cuerpo POST transporta las credenciales.
+        // No se incluyen en la URL.
+
+        await fetch(SCRIPT_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: {
+            "Content-Type":
+              "application/x-www-form-urlencoded;charset=UTF-8"
+          },
+          body: datos.toString()
+        });
+
+        mostrar(
+          "Solicitud enviada.\n\n" +
+          "Esperando autorización del servidor..."
+        );
+
+        let resultado = null;
+
+        for (let intento = 0; intento < 15; intento++) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          try {
+            resultado = await consultarResultado(
+              "resultado_vinculacion",
+              solicitud
+            );
+
+            if (resultado && resultado.recibido) {
+              continue;
+            }
+
+            if (resultado) {
+              break;
+            }
+
+          } catch (error) {
+            console.log(
+              "Esperando respuesta del servidor:",
+              error.message
+            );
+          }
+        }
+
+        if (!resultado) {
+          throw new Error(
+            "No se recibió respuesta del servidor. " +
+            "Puedes volver a intentarlo."
+          );
+        }
+
+        if (resultado.ok && resultado.autorizado) {
+          dispositivo.estado = "autorizado";
+
+          localStorage.setItem(
+            CLAVE_DISPOSITIVO,
+            JSON.stringify(dispositivo)
+          );
+
+          mostrar(
+            "¡Dispositivo autorizado!\n\n" +
+            "Correo: " + resultado.correo + "\n" +
+            "Nombre: " + resultado.nombre + "\n" +
+            "Teléfono: " + identificarTipoTelefono() + "\n\n" +
+            "La vinculación de este teléfono se completó."
+          );
+
+          return;
+        }
+
+        mostrar(
+          "No fue posible autorizar este dispositivo.\n\n" +
+          (resultado.mensaje || "El servidor rechazó la solicitud.") +
+          "\n\nContacta a la coordinación si necesitas ayuda."
+        );
+
+      } catch (error) {
+        console.error(error);
+
+        mostrar(
+          "Ocurrió un problema durante la vinculación.\n\n" +
+          error.message
+        );
+
+      } finally {
+        procesandoVinculacion = false;
+      }
+    }
+
+    // ----------------------------------------
+    // 7. PROCESAR EL ENLACE DE FIREBASE
+    // ----------------------------------------
+
+    async function comprobarEnlace() {
+      if (!isSignInWithEmailLink(auth, window.location.href)) {
         return;
       }
 
-      if (resultado && resultado.autorizado === false) {
+      let correo = localStorage.getItem(CLAVE_CORREO);
 
-        mostrar(
-          "ACCESO NO AUTORIZADO\n\n" +
-          (resultado.mensaje || "Contacta al administrador.")
+      if (!correo) {
+        correo = window.prompt(
+          "Confirma el correo al que recibiste el enlace:"
         );
+      }
 
+      if (!correo) {
+        mostrar("No se proporcionó un correo para completar el acceso.");
         return;
       }
 
+      try {
+        mostrar("Verificando enlace de acceso...");
+
+        await signInWithEmailLink(
+          auth,
+          correo,
+          window.location.href
+        );
+
+        localStorage.removeItem(CLAVE_CORREO);
+
+        window.history.replaceState(
+          {},
+          document.title,
+          URL_PAGINA
+        );
+
+        mostrar("Enlace verificado. Comprobando tu cuenta...");
+
+      } catch (error) {
+        console.error(error);
+
+        mostrar(
+          "No se pudo completar la autenticación.\n\n" +
+          error.message
+        );
+      }
     }
 
-    mostrar(
-      "No se recibió una confirmación a tiempo. " +
-      "Comprueba que la implementación de Apps Script esté actualizada."
-    );
+    // ----------------------------------------
+    // 8. RECONOCER LA SESIÓN DE FIREBASE
+    // ----------------------------------------
 
-  }
+    onAuthStateChanged(auth, async usuario => {
+      if (!usuario) {
+        return;
+      }
 
-
-  /***********************
-   * COMPLETAR INICIO DE SESIÓN
-   ***********************/
-
-  async function comprobarEnlace() {
-
-    if (!isSignInWithEmailLink(auth, window.location.href)) {
-      return;
-    }
-
-    let correo = localStorage.getItem(CLAVE);
-
-    if (!correo) {
-
-      correo = prompt(
-        "Escribe el mismo correo al que enviamos el enlace:"
-      );
-
-    }
-
-    if (!correo) {
-
-      mostrar("No se proporcionó el correo electrónico.");
-
-      return;
-    }
-
-    try {
-
-      boton.disabled = true;
-
-      mostrar("Verificando enlace de Firebase...");
-
-      const resultado = await signInWithEmailLink(
-        auth,
-        correo,
-        window.location.href
-      );
-
-      localStorage.removeItem(CLAVE);
-
-      window.history.replaceState(
-        {},
-        document.title,
-        window.location.pathname
-      );
-
-      await verificarEnGoogleSheets(resultado.user);
-
-    } catch (error) {
+      formulario.style.display = "none";
 
       mostrar(
-        "Error de autenticación: " +
-        error.code + " — " + error.message
+        "Sesión institucional detectada.\n\n" +
+        "Verificando autorización..."
       );
 
-    } finally {
+      await vincularDispositivo(usuario);
+    });
 
-      boton.disabled = false;
+    // ----------------------------------------
+    // 9. INICIAR
+    // ----------------------------------------
 
-    }
+    comprobarEnlace();
 
-  }
-
-
-  comprobarEnlace();
-
-</script>
-
+  </script>
 </body>
 </html>
