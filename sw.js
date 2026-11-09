@@ -1,5 +1,5 @@
 
-const CACHE_VERSION = "checador-cuy-v3";
+const CACHE_VERSION = "checador-cuy-v4";
 const CACHE_FIREBASE = "checador-firebase-v1";
 
 const ARCHIVOS = [
@@ -11,10 +11,7 @@ const ARCHIVOS = [
 const FIREBASE_HOST = "www.gstatic.com";
 const FIREBASE_VERSION = "/firebasejs/13.2.0/";
 
-
-/*******************************************************
- * INSTALACIÓN
- *******************************************************/
+/* INSTALACIÓN */
 
 self.addEventListener("install", event => {
   event.waitUntil(
@@ -24,10 +21,7 @@ self.addEventListener("install", event => {
   );
 });
 
-
-/*******************************************************
- * ACTIVACIÓN Y LIMPIEZA
- *******************************************************/
+/* ACTIVACIÓN Y LIMPIEZA */
 
 self.addEventListener("activate", event => {
   event.waitUntil(
@@ -44,24 +38,16 @@ self.addEventListener("activate", event => {
   );
 });
 
-
-/*******************************************************
- * SOLICITUDES DE RED
- *******************************************************/
+/* SOLICITUDES */
 
 self.addEventListener("fetch", event => {
   const solicitud = event.request;
 
-  if (solicitud.method !== "GET") {
-    return;
-  }
+  if (solicitud.method !== "GET") return;
 
   const url = new URL(solicitud.url);
 
-
-  /*****************************************************
-   * MÓDULOS FIREBASE
-   *****************************************************/
+  /* FIREBASE */
 
   if (
     url.hostname === FIREBASE_HOST &&
@@ -72,75 +58,56 @@ self.addEventListener("fetch", event => {
         .then(async cache => {
           const guardado = await cache.match(solicitud);
 
-          if (guardado) {
-            return guardado;
-          }
+          if (guardado) return guardado;
 
           const respuesta = await fetch(solicitud);
 
           if (respuesta.ok) {
-            await cache.put(
-              solicitud,
-              respuesta.clone()
-            );
+            await cache.put(solicitud, respuesta.clone());
           }
 
           return respuesta;
         })
-        .catch(() =>
-          new Response(
-            "No se encuentra disponible el módulo de Firebase sin conexión.",
-            {
-              status: 503,
-              headers: {
-                "Content-Type": "text/plain; charset=utf-8"
-              }
-            }
-          )
-        )
+        .catch(() => new Response(
+          "Módulo de Firebase no disponible.",
+          { status: 503 }
+        ))
     );
 
     return;
   }
 
+  /* SOLO ARCHIVOS DEL MISMO SITIO */
 
-  /*****************************************************
-   * ARCHIVOS DE LA APLICACIÓN
-   *****************************************************/
+  if (url.origin !== self.location.origin) return;
 
-  if (url.origin !== self.location.origin) {
-    return;
-  }
-
-
-  /*****************************************************
-   * PÁGINA PRINCIPAL
-   *****************************************************/
+  /* NAVEGACIÓN */
 
   if (solicitud.mode === "navigate") {
+    const esPaginaPrincipal =
+      url.pathname.endsWith("/") ||
+      url.pathname.endsWith("/index.html");
+
     event.respondWith(
       fetch(solicitud)
-        .then(respuesta => {
-          if (respuesta.ok) {
-            const copia = respuesta.clone();
-
-            caches.open(CACHE_VERSION)
-              .then(cache =>
-                cache.put("./index.html", copia)
-              );
+        .then(async respuesta => {
+          if (respuesta.ok && esPaginaPrincipal) {
+            const cache = await caches.open(CACHE_VERSION);
+            await cache.put("./index.html", respuesta.clone());
           }
 
           return respuesta;
         })
         .catch(async () => {
-          const guardado = await caches.match("./index.html");
+          if (esPaginaPrincipal) {
+            const cache = await caches.open(CACHE_VERSION);
+            const guardado = await cache.match("./index.html");
 
-          if (guardado) {
-            return guardado;
+            if (guardado) return guardado;
           }
 
           return new Response(
-            "El checador no está disponible.",
+            "Página no disponible. Comprueba tu conexión.",
             {
               status: 503,
               headers: {
@@ -154,46 +121,32 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-
-  /*****************************************************
-   * RECURSOS LOCALES
-   *****************************************************/
+  /* RECURSOS LOCALES */
 
   event.respondWith(
-    caches.match(solicitud)
-      .then(async guardado => {
-        const solicitudRed = fetch(solicitud)
-          .then(respuesta => {
-            if (respuesta.ok) {
-              const copia = respuesta.clone();
+    caches.open(CACHE_VERSION)
+      .then(async cache => {
+        const guardado = await cache.match(solicitud);
 
-              caches.open(CACHE_VERSION)
-                .then(cache =>
-                  cache.put(solicitud, copia)
-                );
+        const solicitudRed = fetch(solicitud)
+          .then(async respuesta => {
+            if (respuesta.ok) {
+              await cache.put(solicitud, respuesta.clone());
             }
 
             return respuesta;
           });
 
         if (guardado) {
-          event.waitUntil(
-            solicitudRed.catch(() => {})
-          );
-
+          event.waitUntil(solicitudRed.catch(() => {}));
           return guardado;
         }
 
-        try {
-          return await solicitudRed;
-        } catch (error) {
-          return new Response("Sin conexión", {
-            status: 503,
-            headers: {
-              "Content-Type": "text/plain; charset=utf-8"
-            }
-          });
-        }
+        return solicitudRed;
       })
+      .catch(() => new Response(
+        "Recurso no disponible sin conexión.",
+        { status: 503 }
+      ))
   );
 });
