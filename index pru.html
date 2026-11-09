@@ -1,0 +1,520 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#172554">
+
+<title>Checador docente</title>
+
+<link rel="manifest" href="manifest.json">
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background: #f1f5f9;
+  color: #1e293b;
+  margin: 0;
+  padding: 20px;
+}
+
+main {
+  max-width: 430px;
+  margin: 35px auto;
+  background: white;
+  padding: 25px;
+  border-radius: 18px;
+  box-shadow: 0 4px 18px #0001;
+}
+
+h1 {
+  text-align: center;
+  color: #172554;
+}
+
+.subtitulo {
+  text-align: center;
+  color: #64748b;
+}
+
+input, button {
+  width: 100%;
+  padding: 15px;
+  margin-top: 12px;
+  border-radius: 9px;
+  font-size: 16px;
+}
+
+input {
+  border: 1px solid #cbd5e1;
+}
+
+button {
+  border: none;
+  background: #1e40af;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: .5;
+}
+
+.registrar {
+  background: #15803d;
+  padding: 19px;
+  margin-top: 20px;
+}
+
+.estado {
+  background: #eff6ff;
+  padding: 15px;
+  border-radius: 9px;
+  margin-top: 18px;
+  text-align: center;
+}
+
+.registro {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 12px 0;
+  font-size: 14px;
+}
+
+.secundario {
+  background: #475569;
+}
+
+.oculto {
+  display: none;
+}
+
+small {
+  color: #64748b;
+}
+</style>
+</head>
+
+<body>
+
+<main>
+
+  <h1>Checador docente</h1>
+
+  <p class="subtitulo">
+    Registro de llegada del personal docente
+  </p>
+
+  <section id="configuracion">
+
+    <h3>Identificación del docente</h3>
+
+    <p>Ingresa tu correo institucional:</p>
+
+    <input
+      id="correo"
+      type="email"
+      placeholder="profesor@escuela.edu.mx"
+    >
+
+    <button onclick="guardarCorreo()">
+      Guardar identificación
+    </button>
+
+  </section>
+
+  <section id="principal" class="oculto">
+
+    <p>
+      Docente:
+      <strong id="correoActual"></strong>
+    </p>
+
+    <p>
+      Licenciatura:
+      <strong>Diseño Gráfico Digital</strong>
+    </p>
+
+    <button class="registrar" onclick="registrarLlegada()">
+      REGISTRAR MI LLEGADA
+    </button>
+
+    <div class="estado" id="estado">
+      Preparado para registrar.
+    </div>
+
+    <h3>Historial de registros</h3>
+
+    <div id="historial"></div>
+
+    <button class="secundario" onclick="sincronizar()">
+      Sincronizar registros pendientes
+    </button>
+
+  </section>
+
+</main>
+
+<script>
+
+// =====================================
+// CONFIGURACIÓN
+// =====================================
+
+const SCRIPT_URL =
+'https://script.google.com/macros/s/AKfycbzRJzsDDnGsaXzC4NSm0iQMzs6veZtpR-OIZfKkDhZX38r3q8PGZ3U9aoAU56SIIej-/exec';
+
+const TOKEN = 'DEMO_CHECADOR_2026';
+
+const CLAVE_CORREO = 'checador_correo';
+const CLAVE_REGISTROS = 'checador_registros';
+
+let correo = localStorage.getItem(CLAVE_CORREO) || '';
+
+
+// =====================================
+// ALMACENAMIENTO LOCAL
+// =====================================
+
+function obtenerRegistros() {
+
+  return JSON.parse(
+    localStorage.getItem(CLAVE_REGISTROS) || '[]'
+  );
+
+}
+
+function guardarRegistros(registros) {
+
+  localStorage.setItem(
+    CLAVE_REGISTROS,
+    JSON.stringify(registros)
+  );
+
+}
+
+
+// =====================================
+// IDENTIFICACIÓN
+// =====================================
+
+function guardarCorreo() {
+
+  const valor = document
+    .getElementById('correo')
+    .value
+    .trim()
+    .toLowerCase();
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor)) {
+
+    alert('Ingresa un correo válido.');
+
+    return;
+
+  }
+
+  correo = valor;
+
+  localStorage.setItem(CLAVE_CORREO, correo);
+
+  actualizarPantalla();
+
+  sincronizar();
+
+}
+
+
+// =====================================
+// REGISTRO DE LLEGADA
+// =====================================
+
+function registrarLlegada() {
+
+  if (!correo) return;
+
+  const registros = obtenerRegistros();
+
+  const ultimo = registros[registros.length - 1];
+
+  if (
+    ultimo &&
+    Date.now() - new Date(ultimo.timestamp).getTime() < 60000
+  ) {
+
+    alert('Ya existe un registro reciente.');
+
+    return;
+
+  }
+
+  const id = (
+    Date.now().toString(36) +
+    Math.random().toString(36).slice(2, 12)
+  );
+
+  const registro = {
+
+    id: id,
+
+    email: correo,
+
+    timestamp: new Date().toISOString(),
+
+    sincronizado: false
+
+  };
+
+  registros.push(registro);
+
+  guardarRegistros(registros);
+
+  document.getElementById('estado').textContent =
+    'Llegada registrada: ' +
+    new Date(registro.timestamp).toLocaleTimeString('es-MX');
+
+  actualizarPantalla();
+
+  sincronizar();
+
+}
+
+
+// =====================================
+// ENVÍO A GOOGLE SHEETS
+// =====================================
+
+function enviarRegistro(registro) {
+
+  return new Promise((resolve, reject) => {
+
+    const callback = 'checador_' +
+      Date.now() + '_' +
+      Math.random().toString(36).slice(2, 8);
+
+    const parametros = new URLSearchParams({
+
+      action: 'sync',
+
+      callback: callback,
+
+      token: TOKEN,
+
+      id: registro.id,
+
+      email: registro.email,
+
+      timestamp: registro.timestamp
+
+    });
+
+    const script = document.createElement('script');
+
+    let terminado = false;
+
+    function limpiar() {
+
+      delete window[callback];
+
+      script.remove();
+
+    }
+
+    const temporizador = setTimeout(() => {
+
+      if (terminado) return;
+
+      terminado = true;
+
+      limpiar();
+
+      reject(new Error('Tiempo de espera agotado.'));
+
+    }, 20000);
+
+    window[callback] = respuesta => {
+
+      if (terminado) return;
+
+      terminado = true;
+
+      clearTimeout(temporizador);
+
+      limpiar();
+
+      if (respuesta && respuesta.ok) {
+
+        resolve(respuesta);
+
+      } else {
+
+        reject(new Error(
+          respuesta?.error || 'Error al guardar.'
+        ));
+
+      }
+
+    };
+
+    script.onerror = () => {
+
+      if (terminado) return;
+
+      terminado = true;
+
+      clearTimeout(temporizador);
+
+      limpiar();
+
+      reject(new Error('No hay conexión con el servidor.'));
+
+    };
+
+    script.src = SCRIPT_URL + '?' + parametros.toString();
+
+    document.body.appendChild(script);
+
+  });
+
+}
+
+
+// =====================================
+// SINCRONIZACIÓN
+// =====================================
+
+async function sincronizar() {
+
+  if (!navigator.onLine) {
+
+    document.getElementById('estado').textContent =
+      'Sin internet. Los registros están guardados localmente.';
+
+    return;
+
+  }
+
+  const registros = obtenerRegistros();
+
+  for (let i = 0; i < registros.length; i++) {
+
+    if (registros[i].sincronizado) continue;
+
+    try {
+
+      await enviarRegistro(registros[i]);
+
+      registros[i].sincronizado = true;
+
+      guardarRegistros(registros);
+
+      actualizarPantalla();
+
+    } catch (error) {
+
+      console.log(error);
+
+      break;
+
+    }
+
+  }
+
+  const pendientes = obtenerRegistros()
+    .filter(r => !r.sincronizado).length;
+
+  document.getElementById('estado').textContent =
+
+    pendientes === 0
+
+      ? 'Todos los registros están sincronizados.'
+
+      : pendientes + ' registro(s) pendientes de enviar.';
+
+}
+
+
+// =====================================
+// ACTUALIZAR PANTALLA
+// =====================================
+
+function actualizarPantalla() {
+
+  document.getElementById('configuracion')
+    .classList.toggle('oculto', !!correo);
+
+  document.getElementById('principal')
+    .classList.toggle('oculto', !correo);
+
+  document.getElementById('correoActual').textContent =
+    correo;
+
+  const historial = document.getElementById('historial');
+
+  historial.innerHTML = '';
+
+  obtenerRegistros().slice().reverse().forEach(r => {
+
+    const div = document.createElement('div');
+
+    div.className = 'registro';
+
+    const fecha = new Date(r.timestamp);
+
+    div.textContent =
+
+      fecha.toLocaleDateString('es-MX') +
+      ' — ' +
+      fecha.toLocaleTimeString('es-MX') +
+      ' — ' +
+      (r.sincronizado ? 'Sincronizado' : 'Pendiente');
+
+    historial.appendChild(div);
+
+  });
+
+}
+
+
+// =====================================
+// DETECTAR CONEXIÓN
+// =====================================
+
+window.addEventListener('online', sincronizar);
+
+document.addEventListener('visibilitychange', () => {
+
+  if (document.visibilityState === 'visible') {
+
+    sincronizar();
+
+  }
+
+});
+
+
+// =====================================
+// INICIAR APLICACIÓN
+// =====================================
+
+actualizarPantalla();
+
+if ('serviceWorker' in navigator) {
+
+  window.addEventListener('load', () => {
+
+    navigator.serviceWorker.register('./sw.js');
+
+  });
+
+}
+
+</script>
+
+</body>
+</html>
