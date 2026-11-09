@@ -56,15 +56,16 @@
       background: #2d2d2d;
       border-radius: 10px;
       line-height: 1.7;
+      white-space: pre-wrap;
     }
 
-    .pequeno {
+    .oculto { display: none; }
+
+    .pie {
       margin-top: 22px;
       font-size: 12px;
       color: #999;
     }
-
-    .oculto { display: none; }
   </style>
 </head>
 
@@ -82,12 +83,45 @@
 
     <div id="detalle" class="detalle oculto"></div>
 
-    <p class="pequeno">
+    <p class="pie">
       Colegio Universitario de Yahualica · Control de asistencia
     </p>
   </main>
 
-  <script>
+  <script type="module">
+
+    // ==========================================
+    // 1. FIREBASE
+    // ==========================================
+
+    import { initializeApp } from
+      "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
+
+    import {
+      getAuth,
+      onAuthStateChanged
+    } from
+      "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
+
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAMLtZyqiUkME1HwiGSHOFFw7j-UpmBbJI",
+      authDomain: "checador-docente-cuy.firebaseapp.com",
+      projectId: "checador-docente-cuy",
+      storageBucket: "checador-docente-cuy.firebasestorage.app",
+      messagingSenderId: "15127097699",
+      appId: "1:15127097699:web:308aae0b17e363ad5b2356",
+      measurementId: "G-BP8YEFQDJE"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+
+    // ==========================================
+    // 2. CONFIGURACIÓN
+    // ==========================================
+
     const SCRIPT_URL =
       "https://script.google.com/macros/s/AKfycbyXlKZuyW8NkhM8Jwut84LDVXCQIsx-8Fa0wZ8Jkcdo57s3ZqAnD9Q0IOXgJvw9AKXY/exec";
 
@@ -99,8 +133,13 @@
     const estado = document.getElementById("estado");
     const detalle = document.getElementById("detalle");
 
-    let usuarioFirebase = null;
-    let procesando = false;
+    let usuarioActual = null;
+    let procesoEnCurso = false;
+
+
+    // ==========================================
+    // 3. FUNCIONES GENERALES
+    // ==========================================
 
     function mostrar(mensaje) {
       estado.textContent = mensaje;
@@ -112,29 +151,13 @@
     }
 
     function generarUUID() {
-      if (crypto.randomUUID) return crypto.randomUUID();
-
-      return Array.from(crypto.getRandomValues(new Uint8Array(16)))
-        .map(n => n.toString(16).padStart(2, "0"))
-        .join("");
-    }
-
-    function obtenerDispositivo() {
-      const texto = localStorage.getItem(CLAVE_DISPOSITIVO);
-
-      if (!texto) return null;
-
-      try {
-        const dispositivo = JSON.parse(texto);
-
-        if (dispositivo.id && dispositivo.token) {
-          return dispositivo;
-        }
-      } catch (error) {
-        console.error(error);
+      if (crypto.randomUUID) {
+        return crypto.randomUUID();
       }
 
-      return null;
+      return Array.from(
+        crypto.getRandomValues(new Uint8Array(16))
+      ).map(n => n.toString(16).padStart(2, "0")).join("");
     }
 
     function obtenerTipoTelefono() {
@@ -145,6 +168,34 @@
 
       return "Otro dispositivo";
     }
+
+    function obtenerDispositivo() {
+      try {
+        const texto = localStorage.getItem(CLAVE_DISPOSITIVO);
+
+        if (!texto) return null;
+
+        const dispositivo = JSON.parse(texto);
+
+        if (
+          dispositivo.id &&
+          dispositivo.token &&
+          dispositivo.estado === "autorizado"
+        ) {
+          return dispositivo;
+        }
+
+      } catch (error) {
+        console.error("Error leyendo dispositivo:", error);
+      }
+
+      return null;
+    }
+
+
+    // ==========================================
+    // 4. ALMACENAMIENTO LOCAL
+    // ==========================================
 
     function obtenerRegistros() {
       try {
@@ -163,7 +214,7 @@
       );
     }
 
-    function obtenerFechaLocal() {
+    function obtenerFechaMexico() {
       const partes = new Intl.DateTimeFormat("en-CA", {
         timeZone: "America/Mexico_City",
         year: "numeric",
@@ -172,45 +223,91 @@
       }).formatToParts(new Date());
 
       const valores = {};
-      partes.forEach(p => valores[p.type] = p.value);
 
-      return valores.year + valores.month + valores.day;
+      partes.forEach(parte => {
+        valores[parte.type] = parte.value;
+      });
+
+      return (
+        valores.year +
+        valores.month +
+        valores.day
+      );
     }
 
-    function crearIdDiario(dispositivo) {
-      // Un identificador estable por teléfono y día.
-      return dispositivo.id + obtenerFechaLocal();
+    function crearIdRegistro(dispositivo) {
+      return dispositivo.id + obtenerFechaMexico();
     }
 
-    function consultarServidor(accion, id) {
+    function buscarRegistro(idRegistro) {
+      return obtenerRegistros().find(
+        registro => registro.idRegistro === idRegistro
+      );
+    }
+
+    function guardarRegistroLocal(registro) {
+      const registros = obtenerRegistros();
+
+      const existente = registros.findIndex(
+        item => item.idRegistro === registro.idRegistro
+      );
+
+      if (existente >= 0) {
+        registros[existente] = {
+          ...registros[existente],
+          ...registro
+        };
+      } else {
+        registros.push(registro);
+      }
+
+      guardarRegistros(registros);
+    }
+
+
+    // ==========================================
+    // 5. CONSULTAS JSONP AL SERVIDOR
+    // ==========================================
+
+    function consultarServidor(accion, solicitud) {
       return new Promise((resolve, reject) => {
-        const callback = "cuy_" + generarUUID().replace(/-/g, "");
+
+        const callback =
+          "cuy_" + generarUUID().replace(/-/g, "");
+
         const script = document.createElement("script");
         let terminado = false;
 
         function limpiar() {
           clearTimeout(temporizador);
           delete window[callback];
-          script.remove();
+
+          if (script.parentNode) {
+            script.parentNode.removeChild(script);
+          }
         }
 
         const temporizador = setTimeout(() => {
           if (terminado) return;
+
           terminado = true;
           limpiar();
-          reject(new Error("El servidor tardó demasiado."));
+
+          reject(new Error("Tiempo de espera agotado."));
         }, 10000);
 
         window[callback] = resultado => {
           if (terminado) return;
+
           terminado = true;
           limpiar();
+
           resolve(resultado);
         };
 
         const parametros = new URLSearchParams({
           action: accion,
-          id: id,
+          id: solicitud,
           callback: callback
         });
 
@@ -218,8 +315,10 @@
 
         script.onerror = () => {
           if (terminado) return;
+
           terminado = true;
           limpiar();
+
           reject(new Error("No se pudo consultar el servidor."));
         };
 
@@ -227,7 +326,12 @@
       });
     }
 
-    async function enviarPost(datos) {
+
+    // ==========================================
+    // 6. ENVÍO POST
+    // ==========================================
+
+    async function enviarSolicitud(datos) {
       await fetch(SCRIPT_URL, {
         method: "POST",
         mode: "no-cors",
@@ -238,6 +342,45 @@
         body: datos.toString()
       });
     }
+
+
+    // ==========================================
+    // 7. ESPERAR RESULTADO DEL SERVIDOR
+    // ==========================================
+
+    async function esperarResultado(accion, solicitud) {
+      for (let intento = 0; intento < 15; intento++) {
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        try {
+          const resultado = await consultarServidor(
+            accion,
+            solicitud
+          );
+
+          if (resultado && resultado.pendiente) {
+            continue;
+          }
+
+          if (resultado) {
+            return resultado;
+          }
+
+        } catch (error) {
+          console.log("Esperando servidor:", error.message);
+        }
+      }
+
+      throw new Error(
+        "El servidor no confirmó la operación."
+      );
+    }
+
+
+    // ==========================================
+    // 8. VALIDAR TELÉFONO
+    // ==========================================
 
     async function validarTelefono(usuario, dispositivo) {
       mostrar("Comprobando autorización del teléfono...");
@@ -254,263 +397,324 @@
         solicitud: solicitud
       });
 
-      await enviarPost(datos);
+      await enviarSolicitud(datos);
 
-      for (let i = 0; i < 15; i++) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        try {
-          const resultado = await consultarServidor(
-            "resultado_validacion_dispositivo",
-            solicitud
-          );
-
-          if (resultado && resultado.pendiente) continue;
-
-          if (
-            resultado &&
-            resultado.ok === true &&
-            resultado.autorizado === true
-          ) {
-            return resultado;
-          }
-
-          throw new Error(
-            resultado?.mensaje || "Teléfono no autorizado."
-          );
-
-        } catch (error) {
-          if (
-            error.message !== "El servidor tardó demasiado." &&
-            error.message !== "No se pudo consultar el servidor."
-          ) {
-            throw error;
-          }
-        }
-      }
-
-      throw new Error("No se pudo confirmar la autorización.");
-    }
-
-    async function comprobarRegistroExistente(idRegistro) {
-      for (let i = 0; i < 12; i++) {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
-        try {
-          const resultado = await consultarServidor(
-            "status",
-            idRegistro
-          );
-
-          if (resultado && resultado.encontrado === true) {
-            return true;
-          }
-        } catch (error) {
-          console.log(error.message);
-        }
-      }
-
-      return false;
-    }
-
-    async function registrarLlegada(usuario, dispositivo) {
-      const idRegistro = crearIdDiario(dispositivo);
-      const registros = obtenerRegistros();
-
-      const existente = registros.find(
-        r => r.idRegistro === idRegistro
+      const resultado = await esperarResultado(
+        "resultado_validacion_dispositivo",
+        solicitud
       );
 
-      if (existente && existente.sincronizado) {
-        mostrar("Tu asistencia de hoy ya está registrada.");
-        mostrarDetalle(
-          "Fecha: " + new Date(
-            existente.timestamp
-          ).toLocaleDateString("es-MX") +
-          "\nHora: " + new Date(
-            existente.timestamp
-          ).toLocaleTimeString("es-MX")
+      if (
+        !resultado ||
+        resultado.ok !== true ||
+        resultado.autorizado !== true
+      ) {
+        throw new Error(
+          resultado?.mensaje ||
+          "El teléfono no está autorizado."
         );
+      }
+
+      return resultado;
+    }
+
+
+    // ==========================================
+    // 9. CREAR O RECUPERAR ASISTENCIA
+    // ==========================================
+
+    function prepararRegistro(dispositivo, correo) {
+      const idRegistro = crearIdRegistro(dispositivo);
+
+      let registro = buscarRegistro(idRegistro);
+
+      if (registro) {
+        return registro;
+      }
+
+      registro = {
+        idRegistro: idRegistro,
+        correo: correo,
+        timestamp: new Date().getTime(),
+        sincronizado: false,
+        creadoLocalmente: true
+      };
+
+      guardarRegistroLocal(registro);
+
+      return registro;
+    }
+
+
+    // ==========================================
+    // 10. SINCRONIZAR UNA ASISTENCIA
+    // ==========================================
+
+    async function sincronizarRegistro(
+      usuario,
+      dispositivo,
+      registro
+    ) {
+      const idToken = await usuario.getIdToken(true);
+      const solicitud = generarUUID();
+
+      const datos = new URLSearchParams({
+        action: "sync",
+        solicitud: solicitud,
+        idRegistro: registro.idRegistro,
+        idToken: idToken,
+        idDispositivo: dispositivo.id,
+        tokenDispositivo: dispositivo.token,
+        timestamp: String(registro.timestamp)
+      });
+
+      await enviarSolicitud(datos);
+
+      const resultado = await esperarResultado(
+        "resultado_sync",
+        solicitud
+      );
+
+      if (!resultado || resultado.ok !== true) {
+        throw new Error(
+          resultado?.mensaje ||
+          "El servidor rechazó el registro."
+        );
+      }
+
+      registro.sincronizado = true;
+      registro.horaRecepcion = new Date().toISOString();
+
+      guardarRegistroLocal(registro);
+
+      return resultado;
+    }
+
+
+    // ==========================================
+    // 11. SINCRONIZAR REGISTROS PENDIENTES
+    // ==========================================
+
+    async function sincronizarPendientes(usuario, dispositivo) {
+      if (!navigator.onLine) return;
+
+      const pendientes = obtenerRegistros().filter(
+        registro => registro.sincronizado !== true
+      );
+
+      for (const registro of pendientes) {
+        mostrar(
+          "Sincronizando asistencia pendiente...\n\n" +
+          "No cierres esta página."
+        );
+
+        try {
+          await sincronizarRegistro(
+            usuario,
+            dispositivo,
+            registro
+          );
+
+        } catch (error) {
+          console.error(error);
+
+          mostrar(
+            "Hay una asistencia pendiente de sincronización.\n\n" +
+            error.message +
+            "\n\nSe conservará en este teléfono para reintentar."
+          );
+
+          return;
+        }
+      }
+    }
+
+
+    // ==========================================
+    // 12. REGISTRO AUTOMÁTICO DE LLEGADA
+    // ==========================================
+
+    async function registrarLlegada(usuario, dispositivo) {
+      const registro = prepararRegistro(
+        dispositivo,
+        usuario.email
+      );
+
+      if (registro.sincronizado === true) {
+        mostrar("Tu asistencia de hoy ya está registrada.");
+
+        mostrarDetalle(
+          "Correo: " + usuario.email +
+          "\nFecha: " +
+          new Date(registro.timestamp).toLocaleDateString("es-MX") +
+          "\nHora de llegada: " +
+          new Date(registro.timestamp).toLocaleTimeString("es-MX") +
+          "\nTeléfono: " + obtenerTipoTelefono() +
+          "\nEstado: Registrado"
+        );
+
         return;
       }
 
       if (!navigator.onLine) {
         mostrar(
-          "No hay conexión a internet.\n\n" +
-          "Tu teléfono está autorizado, pero todavía no podemos " +
-          "confirmar el registro con el servidor."
+          "Asistencia guardada en este teléfono.\n\n" +
+          "No hay conexión a internet. Se enviará al servidor " +
+          "cuando vuelva la conexión."
         );
+
+        mostrarDetalle(
+          "Correo: " + usuario.email +
+          "\nFecha: " +
+          new Date(registro.timestamp).toLocaleDateString("es-MX") +
+          "\nHora local: " +
+          new Date(registro.timestamp).toLocaleTimeString("es-MX") +
+          "\nEstado: Pendiente de sincronización"
+        );
+
         return;
       }
 
-      mostrar("Registrando tu llegada...");
-
-      const timestamp = existente
-        ? existente.timestamp
-        : new Date().toISOString();
-
-      const idToken = await usuario.getIdToken(true);
-
-      const registro = {
-        idRegistro: idRegistro,
-        timestamp: timestamp,
-        sincronizado: false
-      };
-
-      const lista = obtenerRegistros();
-
-      if (!lista.some(r => r.idRegistro === idRegistro)) {
-        lista.push(registro);
-        guardarRegistros(lista);
-      }
-
-      const datos = new URLSearchParams({
-        action: "sync",
-        idRegistro: idRegistro,
-        idToken: idToken,
-        idDispositivo: dispositivo.id,
-        tokenDispositivo: dispositivo.token,
-        timestamp: String(new Date(timestamp).getTime())
-      });
-
-      await enviarPost(datos);
-
-      const confirmado = await comprobarRegistroExistente(
-        idRegistro
+      await sincronizarRegistro(
+        usuario,
+        dispositivo,
+        registro
       );
-
-      if (!confirmado) {
-        mostrar(
-          "La solicitud fue enviada, pero todavía no se confirmó " +
-          "en el servidor.\n\nNo vuelvas a escanear repetidamente. " +
-          "Conservamos el identificador para evitar duplicados."
-        );
-        return;
-      }
-
-      const actualizados = obtenerRegistros().map(r => {
-        if (r.idRegistro === idRegistro) {
-          return {
-            ...r,
-            sincronizado: true
-          };
-        }
-        return r;
-      });
-
-      guardarRegistros(actualizados);
 
       mostrar("¡Asistencia registrada correctamente!");
 
       mostrarDetalle(
-        "Docente: " + usuario.email +
-        "\nFecha: " + new Date(timestamp).toLocaleDateString("es-MX") +
+        "Correo: " + usuario.email +
+        "\nFecha: " +
+        new Date(registro.timestamp).toLocaleDateString("es-MX") +
         "\nHora de llegada: " +
-        new Date(timestamp).toLocaleTimeString("es-MX") +
+        new Date(registro.timestamp).toLocaleTimeString("es-MX") +
         "\nTeléfono: " + obtenerTipoTelefono() +
         "\nEstado: Registrado en el servidor"
       );
     }
 
-    async function iniciar() {
-      if (procesando) return;
-      procesando = true;
+
+    // ==========================================
+    // 13. INICIAR CHECADOR
+    // ==========================================
+
+    async function iniciarChecador(usuario) {
+      if (procesoEnCurso) return;
+
+      procesoEnCurso = true;
 
       try {
         const dispositivo = obtenerDispositivo();
 
-        if (!dispositivo || dispositivo.estado !== "autorizado") {
-          mostrar("Este teléfono todavía no está autorizado.");
+        if (!dispositivo) {
+          mostrar(
+            "Este teléfono no tiene una autorización local válida.\n\n" +
+            "Primero inicia sesión desde la página de acceso."
+          );
+
           setTimeout(() => {
             window.location.href = URL_ACCESO;
-          }, 1800);
+          }, 2000);
+
           return;
         }
 
         if (!navigator.onLine) {
-          mostrar(
-            "Sin conexión a internet.\n\n" +
-            "Conecta tu teléfono para validar tu sesión y registrar " +
-            "la asistencia."
+          // En modo offline solo se permite guardar una asistencia
+          // si ya existe una sesión Firebase y una autorización local.
+          const registro = prepararRegistro(
+            dispositivo,
+            usuario.email
           );
-          return;
-        }
 
-        mostrar("Comprobando sesión institucional...");
-
-        const { initializeApp } = await import(
-          "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js"
-        );
-
-        const {
-          getAuth,
-          onAuthStateChanged
-        } = await import(
-          "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js"
-        );
-
-        const firebaseConfig = {
-          apiKey: "AIzaSyAMLtZyqiUkME1HwiGSHOFFw7j-UpmBbJI",
-          authDomain: "checador-docente-cuy.firebaseapp.com",
-          projectId: "checador-docente-cuy",
-          storageBucket: "checador-docente-cuy.firebasestorage.app",
-          messagingSenderId: "15127097699",
-          appId: "1:15127097699:web:308aae0b17e363ad5b2356",
-          measurementId: "G-BP8YEFQDJE"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-
-        onAuthStateChanged(auth, async usuario => {
-          if (!usuario) {
-            mostrar("No hay una sesión institucional activa.");
-            setTimeout(() => {
-              window.location.href = URL_ACCESO;
-            }, 1800);
+          if (registro.sincronizado) {
+            mostrar("Tu asistencia de hoy ya está registrada.");
             return;
           }
 
-          usuarioFirebase = usuario;
+          mostrar(
+            "Sin conexión a internet.\n\n" +
+            "La asistencia se ha guardado localmente y quedará " +
+            "pendiente de validación y sincronización."
+          );
 
-          try {
-            const validacion = await validarTelefono(
-              usuario,
-              dispositivo
-            );
+          mostrarDetalle(
+            "Correo: " + usuario.email +
+            "\nHora local: " +
+            new Date(registro.timestamp).toLocaleTimeString("es-MX") +
+            "\nEstado: Pendiente"
+          );
 
-            await registrarLlegada(usuario, dispositivo);
+          return;
+        }
 
-          } catch (error) {
-            console.error(error);
-            mostrar(
-              "No se pudo completar el registro.\n\n" +
-              error.message
-            );
-          }
-        });
+        await validarTelefono(usuario, dispositivo);
+
+        await sincronizarPendientes(usuario, dispositivo);
+
+        await registrarLlegada(usuario, dispositivo);
 
       } catch (error) {
         console.error(error);
+
         mostrar(
-          "No se pudo iniciar el checador.\n\n" +
+          "No se pudo completar el registro.\n\n" +
           error.message
         );
+
       } finally {
-        procesando = false;
+        procesoEnCurso = false;
       }
     }
 
-    window.addEventListener("online", () => {
-      window.location.reload();
+
+    // ==========================================
+    // 14. RECONOCER SESIÓN FIREBASE
+    // ==========================================
+
+    onAuthStateChanged(auth, usuario => {
+      usuarioActual = usuario;
+
+      if (!usuario) {
+        mostrar(
+          "No hay una sesión institucional activa.\n\n" +
+          "Abre primero la página de acceso."
+        );
+
+        setTimeout(() => {
+          window.location.href = URL_ACCESO;
+        }, 2000);
+
+        return;
+      }
+
+      iniciarChecador(usuario);
     });
+
+
+    // ==========================================
+    // 15. RECUPERAR CONEXIÓN
+    // ==========================================
+
+    window.addEventListener("online", () => {
+      if (usuarioActual) {
+        iniciarChecador(usuarioActual);
+      }
+    });
+
+
+    // ==========================================
+    // 16. SERVICE WORKER
+    // ==========================================
 
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("./sw.js")
-        .catch(error => console.log("Service Worker:", error));
+        .catch(error => {
+          console.error("Service Worker:", error);
+        });
     }
 
-    iniciar();
   </script>
 </body>
 </html>
