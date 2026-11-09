@@ -10,9 +10,7 @@
   <title>Checador docente CUY</title>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -35,43 +33,29 @@
       border-radius: 17px;
     }
 
-    h1 {
-      font-size: 25px;
-    }
+    h1 { font-size: 25px; }
 
     p {
       color: #c9c9c9;
       line-height: 1.5;
     }
 
-    .estado {
-      margin-top: 22px;
-      padding: 18px;
-      background: #333;
-      border-radius: 10px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-    }
-
-    .detalle {
+    .estado, .detalle {
       margin-top: 20px;
-      padding: 15px;
-      background: #2d2d2d;
+      padding: 17px;
+      background: #333;
       border-radius: 10px;
       line-height: 1.7;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
     }
 
-    .oculto {
-      display: none !important;
-    }
+    .oculto { display: none !important; }
 
     .boton {
       display: block;
       width: 100%;
-      margin-top: 18px;
+      margin-top: 16px;
       padding: 16px;
       border: 0;
       border-radius: 10px;
@@ -82,26 +66,26 @@
       cursor: pointer;
     }
 
+    .boton.secundario {
+      background: #454545;
+      color: white;
+      border: 1px solid #777;
+    }
+
     .boton:disabled {
       opacity: .45;
       cursor: not-allowed;
     }
 
     .aviso {
-      margin-top: 16px;
-      padding: 12px;
+      margin-top: 18px;
+      padding: 13px;
       border: 1px solid #806b31;
       border-radius: 9px;
       background: #3a321f;
       color: #f3dfa2;
       font-size: 13px;
       line-height: 1.5;
-    }
-
-    .pie {
-      margin-top: 22px;
-      font-size: 12px;
-      color: #999;
     }
 
     .etiqueta {
@@ -112,872 +96,555 @@
       color: #fff1bd;
       font-size: 11px;
       font-weight: bold;
-      letter-spacing: .4px;
+    }
+
+    .pie {
+      margin-top: 22px;
+      font-size: 12px;
+      color: #999;
     }
   </style>
 </head>
 
 <body>
-  <main>
-    <span id="etiquetaModo" class="etiqueta">MODO DE PRUEBA</span>
+<main>
+  <span class="etiqueta">MODO DE PRUEBA</span>
 
-    <h1>Checador CUY</h1>
+  <h1>Checador CUY</h1>
 
-    <p>
-      Sistema institucional de registro de asistencia docente.
-    </p>
+  <p>Sistema institucional de registro de asistencia docente.</p>
 
-    <div id="estado" class="estado">
-      Iniciando checador...
-    </div>
+  <div id="estado" class="estado">Iniciando checador...</div>
 
-    <button id="botonLlegada" class="boton oculto" disabled>
-      Simular llegada
-    </button>
+  <button id="botonValidar" class="boton secundario oculto">
+    Verificar autorización en servidor
+  </button>
 
-    <div id="detalle" class="detalle oculto"></div>
+  <button id="botonLlegada" class="boton oculto">
+    Simular llegada
+  </button>
 
-    <div class="aviso">
-      Durante esta etapa, las simulaciones se guardan únicamente
-      en este teléfono. No se envían a los registros oficiales.
-    </div>
+  <div id="detalle" class="detalle oculto"></div>
 
-    <p class="pie">
-      Colegio Universitario de Yahualica · Control de asistencia
-    </p>
-  </main>
+  <div class="aviso">
+    Las simulaciones se guardan únicamente en este teléfono.
+    No se envían a los registros oficiales.
+  </div>
 
-  <script type="module">
+  <p class="pie">
+    Colegio Universitario de Yahualica · Control de asistencia
+  </p>
+</main>
 
-    /*************************************************
-     * 1. CONFIGURACIÓN
-     *************************************************/
+<script type="module">
 
-    // IMPORTANTE:
-    // true = simulaciones locales, sin enviar asistencias.
-    // false = funcionamiento real, sujeto a validación.
-    const MODO_PRUEBA = true;
+/*************************************************
+ * CONFIGURACIÓN
+ *************************************************/
 
-    import {
-      initializeApp
-    } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
+import { initializeApp } from
+  "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 
-    import {
-      getAuth,
-      onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
+import {
+  getAuth,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAMLtZyqiUkME1HwiGSHOFF7wJ-UpmBbJI",
+  authDomain: "checador-docente-cuy.firebaseapp.com",
+  projectId: "checador-docente-cuy",
+  storageBucket: "checador-docente-cuy.firebasestorage.app",
+  messagingSenderId: "15127097699",
+  appId: "1:15127097699:web:308aae0b17e363ad5b2356",
+  measurementId: "G-BP8YEFQDJE"
+};
+
+const SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbyXlKZuyW8NkhM8Jwut84LDVXCQIsx-8Fa0wZ8Jkcdo57s3ZqAnD9Q0IOXgJvw9AKXY/exec";
+
+const URL_ACCESO = "./prueba_firebase.html";
+const CLAVE_DISPOSITIVO = "checador_dispositivo_v1";
+
+const DB_NOMBRE = "ChecadorCUY";
+const DB_VERSION = 1;
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+const estado = document.getElementById("estado");
+const detalle = document.getElementById("detalle");
+const botonValidar = document.getElementById("botonValidar");
+const botonLlegada = document.getElementById("botonLlegada");
+
+let usuarioActual = null;
+let dispositivoActual = null;
+let baseDatos = null;
+let procesoEnCurso = false;
 
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyAMLtZyqiUkME1HwiGSHOFFw7j-UpmBbJI",
-      authDomain: "checador-docente-cuy.firebaseapp.com",
-      projectId: "checador-docente-cuy",
-      storageBucket: "checador-docente-cuy.firebasestorage.app",
-      messagingSenderId: "15127097699",
-      appId: "1:15127097699:web:308aae0b17e363ad5b2356",
-      measurementId: "G-BP8YEFQDJE"
+/*************************************************
+ * INTERFAZ
+ *************************************************/
+
+function mostrar(mensaje) {
+  estado.textContent = mensaje;
+}
+
+function mostrarDetalle(mensaje) {
+  detalle.textContent = mensaje;
+  detalle.classList.remove("oculto");
+}
+
+function ocultarDetalle() {
+  detalle.classList.add("oculto");
+}
+
+function generarUUID() {
+  return crypto.randomUUID();
+}
+
+function obtenerTipoTelefono() {
+  const agente = navigator.userAgent || "";
+
+  if (/iPhone|iPad|iPod/i.test(agente)) return "iPhone";
+  if (/Android/i.test(agente)) return "Android";
+
+  return "Otro dispositivo";
+}
+
+function obtenerDispositivo() {
+  try {
+    const texto = localStorage.getItem(CLAVE_DISPOSITIVO);
+    if (!texto) return null;
+
+    const dispositivo = JSON.parse(texto);
+
+    if (
+      dispositivo.id &&
+      dispositivo.token &&
+      dispositivo.estado === "autorizado"
+    ) {
+      return dispositivo;
+    }
+  } catch (error) {
+    console.error(error);
+  }
+
+  return null;
+}
+
+
+/*************************************************
+ * INDEXEDDB
+ *************************************************/
+
+function abrirBaseDatos() {
+  return new Promise((resolve, reject) => {
+    const solicitud = indexedDB.open(DB_NOMBRE, DB_VERSION);
+
+    solicitud.onupgradeneeded = event => {
+      const db = event.target.result;
+
+      if (!db.objectStoreNames.contains("pruebas")) {
+        db.createObjectStore("pruebas", {
+          keyPath: "idRegistro"
+        });
+      }
+
+      if (!db.objectStoreNames.contains("pendientes")) {
+        db.createObjectStore("pendientes", {
+          keyPath: "idRegistro"
+        });
+      }
     };
 
-    const SCRIPT_URL =
-      "https://script.google.com/macros/s/AKfycbyXlKZuyW8NkhM8Jwut84LDVXCQIsx-8Fa0wZ8Jkcdo57s3ZqAnD9Q0IOXgJvw9AKXY/exec";
+    solicitud.onsuccess = () => resolve(solicitud.result);
+    solicitud.onerror = () => reject(solicitud.error);
+  });
+}
 
-    const URL_ACCESO = "./prueba_firebase.html";
+function guardarLocal(almacen, registro) {
+  return new Promise((resolve, reject) => {
+    const tx = baseDatos.transaction(almacen, "readwrite");
+    tx.objectStore(almacen).put(registro);
 
-    const CLAVE_DISPOSITIVO = "checador_dispositivo_v1";
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
 
-    const DB_NOMBRE = "ChecadorCUY";
-    const DB_VERSION = 1;
+function obtenerLocal(almacen, id) {
+  return new Promise((resolve, reject) => {
+    const tx = baseDatos.transaction(almacen, "readonly");
+    const solicitud = tx.objectStore(almacen).get(id);
 
-    const estado = document.getElementById("estado");
-    const detalle = document.getElementById("detalle");
-    const botonLlegada = document.getElementById("botonLlegada");
-    const etiquetaModo = document.getElementById("etiquetaModo");
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-
-    let usuarioActual = null;
-    let dispositivoActual = null;
-    let baseDatos = null;
-    let procesoEnCurso = false;
+    solicitud.onsuccess = () => resolve(solicitud.result || null);
+    solicitud.onerror = () => reject(solicitud.error);
+  });
+}
 
 
-    /*************************************************
-     * 2. INTERFAZ
-     *************************************************/
+/*************************************************
+ * FECHA E IDENTIFICADOR
+ *************************************************/
 
-    function mostrar(mensaje) {
-      estado.textContent = mensaje;
+function obtenerFechaMexico() {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Mexico_City",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date());
+
+  const valores = {};
+
+  partes.forEach(parte => {
+    valores[parte.type] = parte.value;
+  });
+
+  return valores.year + valores.month + valores.day;
+}
+
+function crearIdRegistro() {
+  return dispositivoActual.id + obtenerFechaMexico();
+}
+
+
+/*************************************************
+ * CONSULTA JSONP
+ *************************************************/
+
+function consultarServidor(accion, solicitud) {
+  return new Promise((resolve, reject) => {
+    const callback = "cuy_" + generarUUID().replace(/-/g, "");
+    const script = document.createElement("script");
+    let terminado = false;
+
+    function limpiar() {
+      clearTimeout(temporizador);
+      delete window[callback];
+      script.remove();
     }
 
-    function mostrarDetalle(mensaje) {
-      detalle.textContent = mensaje;
-      detalle.classList.remove("oculto");
+    const temporizador = setTimeout(() => {
+      if (terminado) return;
+      terminado = true;
+      limpiar();
+      reject(new Error("Tiempo de espera agotado."));
+    }, 10000);
+
+    window[callback] = resultado => {
+      if (terminado) return;
+      terminado = true;
+      limpiar();
+      resolve(resultado);
+    };
+
+    const parametros = new URLSearchParams({
+      action: accion,
+      id: solicitud,
+      callback
+    });
+
+    script.src = SCRIPT_URL + "?" + parametros.toString();
+
+    script.onerror = () => {
+      if (terminado) return;
+      terminado = true;
+      limpiar();
+      reject(new Error("No se pudo consultar el servidor."));
+    };
+
+    document.body.appendChild(script);
+  });
+}
+
+
+/*************************************************
+ * ENVÍO POST
+ *************************************************/
+
+async function enviarSolicitud(datos) {
+  await fetch(SCRIPT_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: {
+      "Content-Type":
+        "application/x-www-form-urlencoded;charset=UTF-8"
+    },
+    body: datos.toString()
+  });
+}
+
+async function esperarResultado(accion, solicitud) {
+  for (let intento = 0; intento < 15; intento++) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    try {
+      const resultado = await consultarServidor(accion, solicitud);
+
+      if (resultado?.pendiente) continue;
+      if (resultado) return resultado;
+
+    } catch (error) {
+      console.log("Esperando respuesta:", error.message);
     }
+  }
 
-    function mostrarBoton(texto) {
-      botonLlegada.textContent = texto;
-      botonLlegada.disabled = false;
-      botonLlegada.classList.remove("oculto");
-    }
-
-    function ocultarBoton() {
-      botonLlegada.disabled = true;
-      botonLlegada.classList.add("oculto");
-    }
-
-    if (MODO_PRUEBA) {
-      etiquetaModo.textContent = "MODO DE PRUEBA";
-    } else {
-      etiquetaModo.textContent = "MODO DE ASISTENCIA";
-      etiquetaModo.style.background = "#245c3a";
-    }
+  throw new Error("El servidor no confirmó la operación.");
+}
 
 
-    /*************************************************
-     * 3. IDENTIFICACIÓN DEL TELÉFONO
-     *************************************************/
+/*************************************************
+ * VALIDACIÓN REAL DEL DISPOSITIVO
+ *************************************************/
 
-    function obtenerTipoTelefono() {
-      const agente = navigator.userAgent || "";
+async function validarTelefono() {
+  if (!navigator.onLine) {
+    throw new Error("No hay conexión a internet.");
+  }
 
-      if (/iPhone|iPad|iPod/i.test(agente)) {
-        return "iPhone";
-      }
+  const idToken = await usuarioActual.getIdToken(true);
+  const solicitud = generarUUID();
 
-      if (/Android/i.test(agente)) {
-        return "Android";
-      }
+  const datos = new URLSearchParams({
+    action: "validar_dispositivo",
+    idToken,
+    idDispositivo: dispositivoActual.id,
+    tokenDispositivo: dispositivoActual.token,
+    tipoDispositivo: obtenerTipoTelefono(),
+    solicitud
+  });
 
-      return "Otro dispositivo";
-    }
+  await enviarSolicitud(datos);
 
-    function obtenerDispositivo() {
-      try {
-        const texto = localStorage.getItem(CLAVE_DISPOSITIVO);
-
-        if (!texto) return null;
-
-        const dispositivo = JSON.parse(texto);
-
-        if (
-          dispositivo.id &&
-          dispositivo.token &&
-          dispositivo.estado === "autorizado"
-        ) {
-          return dispositivo;
-        }
-
-      } catch (error) {
-        console.error(error);
-      }
-
-      return null;
-    }
+  return await esperarResultado(
+    "resultado_validacion_dispositivo",
+    solicitud
+  );
+}
 
 
-    /*************************************************
-     * 4. BASE DE DATOS LOCAL INDEXEDDB
-     *************************************************/
+/*************************************************
+ * BOTÓN DE DIAGNÓSTICO
+ *************************************************/
 
-    function abrirBaseDatos() {
-      return new Promise((resolve, reject) => {
-        const solicitud = indexedDB.open(
-          DB_NOMBRE,
-          DB_VERSION
-        );
+async function verificarServidor() {
+  if (procesoEnCurso) return;
 
-        solicitud.onupgradeneeded = event => {
-          const db = event.target.result;
+  procesoEnCurso = true;
+  botonValidar.disabled = true;
+  botonLlegada.disabled = true;
+  ocultarDetalle();
 
-          if (!db.objectStoreNames.contains("pruebas")) {
-            db.createObjectStore("pruebas", {
-              keyPath: "idRegistro"
-            });
-          }
+  try {
+    mostrar("Consultando autorización con el servidor...");
 
-          if (!db.objectStoreNames.contains("pendientes")) {
-            db.createObjectStore("pendientes", {
-              keyPath: "idRegistro"
-            });
-          }
-        };
+    const resultado = await validarTelefono();
 
-        solicitud.onsuccess = () => {
-          resolve(solicitud.result);
-        };
-
-        solicitud.onerror = () => {
-          reject(solicitud.error);
-        };
-      });
-    }
-
-    function guardarLocal(nombreAlmacen, registro) {
-      return new Promise((resolve, reject) => {
-        const transaccion = baseDatos.transaction(
-          nombreAlmacen,
-          "readwrite"
-        );
-
-        transaccion.objectStore(nombreAlmacen).put(registro);
-
-        transaccion.oncomplete = () => resolve(true);
-        transaccion.onerror = () => reject(transaccion.error);
-        transaccion.onabort = () => reject(transaccion.error);
-      });
-    }
-
-    function obtenerTodos(nombreAlmacen) {
-      return new Promise((resolve, reject) => {
-        const transaccion = baseDatos.transaction(
-          nombreAlmacen,
-          "readonly"
-        );
-
-        const solicitud = transaccion
-          .objectStore(nombreAlmacen)
-          .getAll();
-
-        solicitud.onsuccess = () => resolve(solicitud.result || []);
-        solicitud.onerror = () => reject(solicitud.error);
-      });
-    }
-
-    function obtenerLocal(nombreAlmacen, idRegistro) {
-      return new Promise((resolve, reject) => {
-        const transaccion = baseDatos.transaction(
-          nombreAlmacen,
-          "readonly"
-        );
-
-        const solicitud = transaccion
-          .objectStore(nombreAlmacen)
-          .get(idRegistro);
-
-        solicitud.onsuccess = () => resolve(solicitud.result || null);
-        solicitud.onerror = () => reject(solicitud.error);
-      });
-    }
-
-    function eliminarLocal(nombreAlmacen, idRegistro) {
-      return new Promise((resolve, reject) => {
-        const transaccion = baseDatos.transaction(
-          nombreAlmacen,
-          "readwrite"
-        );
-
-        transaccion.objectStore(nombreAlmacen).delete(idRegistro);
-
-        transaccion.oncomplete = () => resolve(true);
-        transaccion.onerror = () => reject(transaccion.error);
-      });
-    }
-
-
-    /*************************************************
-     * 5. FECHA E IDENTIFICADOR
-     *************************************************/
-
-    function obtenerFechaMexico() {
-      const partes = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "America/Mexico_City",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit"
-      }).formatToParts(new Date());
-
-      const valores = {};
-
-      partes.forEach(parte => {
-        valores[parte.type] = parte.value;
-      });
-
-      return (
-        valores.year +
-        valores.month +
-        valores.day
+    if (
+      !resultado ||
+      resultado.ok !== true ||
+      resultado.autorizado !== true
+    ) {
+      throw new Error(
+        resultado?.mensaje || "El servidor no autorizó este teléfono."
       );
     }
 
-    function crearIdRegistro(dispositivo) {
-      return dispositivo.id + obtenerFechaMexico();
-    }
+    mostrar(
+      "¡Validación remota exitosa!\n\n" +
+      "El servidor reconoce este teléfono como autorizado."
+    );
 
-    function crearRegistro(usuario, dispositivo) {
-      return {
-        idRegistro: crearIdRegistro(dispositivo),
-        correo: usuario.email,
-        timestamp: Date.now(),
-        tipoDispositivo: obtenerTipoTelefono(),
-        sincronizado: false
-      };
-    }
+    mostrarDetalle(
+      "Correo: " + resultado.correo +
+      "\nNombre: " + resultado.nombre +
+      "\nDispositivo: " + resultado.tipoDispositivo +
+      "\nEstado: Autorizado por el servidor" +
+      "\n\nNo se creó ninguna asistencia."
+    );
 
+  } catch (error) {
+    mostrar(
+      "No se pudo validar el teléfono con el servidor.\n\n" +
+      error.message
+    );
 
-    /*************************************************
-     * 6. JSONP
-     *************************************************/
-
-    function generarUUID() {
-      if (crypto.randomUUID) {
-        return crypto.randomUUID();
-      }
-
-      return Array.from(
-        crypto.getRandomValues(new Uint8Array(16))
-      ).map(n => n.toString(16).padStart(2, "0")).join("");
-    }
-
-    function consultarServidor(accion, solicitud) {
-      return new Promise((resolve, reject) => {
-        const callback =
-          "cuy_" + generarUUID().replace(/-/g, "");
-
-        const script = document.createElement("script");
-        let terminado = false;
-
-        function limpiar() {
-          clearTimeout(temporizador);
-          delete window[callback];
-
-          if (script.parentNode) {
-            script.parentNode.removeChild(script);
-          }
-        }
-
-        const temporizador = setTimeout(() => {
-          if (terminado) return;
-
-          terminado = true;
-          limpiar();
-
-          reject(new Error("Tiempo de espera agotado."));
-        }, 10000);
-
-        window[callback] = resultado => {
-          if (terminado) return;
-
-          terminado = true;
-          limpiar();
-
-          resolve(resultado);
-        };
-
-        const parametros = new URLSearchParams({
-          action: accion,
-          id: solicitud,
-          callback: callback
-        });
-
-        script.src = SCRIPT_URL + "?" + parametros.toString();
-
-        script.onerror = () => {
-          if (terminado) return;
-
-          terminado = true;
-          limpiar();
-
-          reject(new Error("No se pudo consultar el servidor."));
-        };
-
-        document.body.appendChild(script);
-      });
-    }
+  } finally {
+    procesoEnCurso = false;
+    botonValidar.disabled = false;
+    botonLlegada.disabled = false;
+  }
+}
 
 
-    /*************************************************
-     * 7. ENVÍO POST
-     *************************************************/
+/*************************************************
+ * SIMULACIÓN LOCAL
+ *************************************************/
 
-    async function enviarSolicitud(datos) {
-      await fetch(SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: {
-          "Content-Type":
-            "application/x-www-form-urlencoded;charset=UTF-8"
-        },
-        body: datos.toString()
-      });
-    }
+async function simularLlegada() {
+  if (procesoEnCurso) return;
 
-    async function esperarResultado(accion, solicitud) {
-      for (let intento = 0; intento < 15; intento++) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+  procesoEnCurso = true;
+  botonLlegada.disabled = true;
+  ocultarDetalle();
 
-        try {
-          const resultado = await consultarServidor(
-            accion,
-            solicitud
-          );
+  try {
+    const idRegistro = crearIdRegistro();
 
-          if (resultado && resultado.pendiente) {
-            continue;
-          }
+    const existente = await obtenerLocal("pruebas", idRegistro);
 
-          if (resultado) {
-            return resultado;
-          }
+    if (existente) {
+      mostrar("Ya existe una simulación guardada para hoy.");
 
-        } catch (error) {
-          console.log(error.message);
-        }
-      }
-
-      throw new Error("El servidor no confirmó la operación.");
-    }
-
-
-    /*************************************************
-     * 8. VALIDAR TELÉFONO CON EL SERVIDOR
-     *************************************************/
-
-    async function validarTelefono(usuario, dispositivo) {
-      if (!navigator.onLine) {
-        throw new Error("Se necesita conexión para validar el teléfono.");
-      }
-
-      const idToken = await usuario.getIdToken(true);
-      const solicitud = generarUUID();
-
-      const datos = new URLSearchParams({
-        action: "validar_dispositivo",
-        idToken: idToken,
-        idDispositivo: dispositivo.id,
-        tokenDispositivo: dispositivo.token,
-        tipoDispositivo: obtenerTipoTelefono(),
-        solicitud: solicitud
-      });
-
-      await enviarSolicitud(datos);
-
-      const resultado = await esperarResultado(
-        "resultado_validacion_dispositivo",
-        solicitud
+      mostrarDetalle(
+        "Correo: " + existente.correo +
+        "\nHora: " +
+        new Date(existente.timestamp).toLocaleTimeString("es-MX") +
+        "\nEstado: Simulación local"
       );
 
-      if (
-        !resultado ||
-        resultado.ok !== true ||
-        resultado.autorizado !== true
-      ) {
-        throw new Error(
-          resultado?.mensaje || "Teléfono no autorizado."
-        );
-      }
-
-      return resultado;
+      return;
     }
 
+    const registro = {
+      idRegistro,
+      correo: usuarioActual.email,
+      timestamp: Date.now(),
+      tipoDispositivo: obtenerTipoTelefono(),
+      modo: "PRUEBA_LOCAL",
+      sincronizado: false
+    };
 
-    /*************************************************
-     * 9. SIMULACIÓN LOCAL
-     *************************************************/
+    await guardarLocal("pruebas", registro);
 
-    async function simularLlegada() {
-      if (procesoEnCurso) return;
+    mostrar(
+      "Simulación guardada correctamente.\n\n" +
+      "Este registro permanece únicamente en este teléfono."
+    );
 
-      procesoEnCurso = true;
-      botonLlegada.disabled = true;
+    mostrarDetalle(
+      "Correo: " + registro.correo +
+      "\nFecha: " +
+      new Date(registro.timestamp).toLocaleDateString("es-MX") +
+      "\nHora: " +
+      new Date(registro.timestamp).toLocaleTimeString("es-MX") +
+      "\nDispositivo: " + registro.tipoDispositivo +
+      "\nDestino: IndexedDB local" +
+      "\nEstado: No enviado a Google Sheets"
+    );
 
-      try {
-        const registro = crearRegistro(
-          usuarioActual,
-          dispositivoActual
-        );
+  } catch (error) {
+    mostrar("No se pudo guardar la simulación.\n\n" + error.message);
 
-        const existente = await obtenerLocal(
-          "pruebas",
-          registro.idRegistro
-        );
+  } finally {
+    procesoEnCurso = false;
+    botonLlegada.disabled = false;
+  }
+}
 
-        if (existente) {
-          mostrar("Ya existe una simulación de llegada para hoy.");
 
-          mostrarDetalle(
-            "Correo: " + existente.correo +
-            "\nFecha: " +
-            new Date(existente.timestamp).toLocaleDateString("es-MX") +
-            "\nHora: " +
-            new Date(existente.timestamp).toLocaleTimeString("es-MX") +
-            "\nEstado: Simulación local"
-          );
+/*************************************************
+ * INICIO
+ *************************************************/
 
-          return;
-        }
+async function iniciarAplicacion(usuario) {
+  usuarioActual = usuario;
 
-        registro.modo = "PRUEBA_LOCAL";
-        registro.sincronizado = false;
+  botonValidar.classList.add("oculto");
+  botonLlegada.classList.add("oculto");
 
-        await guardarLocal("pruebas", registro);
+  if (!usuario) {
+    mostrar("No hay una sesión activa. Redirigiendo al acceso...");
 
-        mostrar(
-          "Simulación guardada correctamente.\n\n" +
-          "Este registro permanece únicamente en este teléfono."
-        );
+    setTimeout(() => {
+      window.location.href = URL_ACCESO;
+    }, 1800);
 
-        mostrarDetalle(
-          "Correo: " + registro.correo +
-          "\nFecha: " +
-          new Date(registro.timestamp).toLocaleDateString("es-MX") +
-          "\nHora: " +
-          new Date(registro.timestamp).toLocaleTimeString("es-MX") +
-          "\nDispositivo: " + registro.tipoDispositivo +
-          "\nConexión: " +
-          (navigator.onLine ? "Con internet" : "Sin internet") +
-          "\nDestino: IndexedDB local" +
-          "\nEstado: No enviado a Google Sheets"
-        );
+    return;
+  }
 
-      } catch (error) {
-        mostrar("No se pudo guardar la simulación.\n\n" + error.message);
+  try {
+    baseDatos = await abrirBaseDatos();
+    dispositivoActual = obtenerDispositivo();
 
-      } finally {
-        procesoEnCurso = false;
-        botonLlegada.disabled = false;
-      }
+    if (!dispositivoActual) {
+      mostrar("Este teléfono no tiene autorización local.");
+
+      setTimeout(() => {
+        window.location.href = URL_ACCESO;
+      }, 2500);
+
+      return;
     }
 
+    mostrar(
+      "Sesión reconocida.\n\n" +
+      "Correo: " + usuario.email +
+      "\nDispositivo: " + obtenerTipoTelefono() +
+      "\nConexión: " +
+      (navigator.onLine ? "Disponible" : "Sin conexión") +
+      "\n\nPuedes realizar una simulación local o verificar el servidor."
+    );
 
-    /*************************************************
-     * 10. REGISTRO REAL
-     *************************************************/
+    botonLlegada.textContent = "Simular llegada";
+    botonLlegada.classList.remove("oculto");
 
-    async function sincronizarRegistro(usuario, dispositivo, registro) {
-      if (!navigator.onLine) {
-        throw new Error("No hay conexión para sincronizar.");
-      }
+    botonValidar.classList.remove("oculto");
+    botonValidar.disabled = !navigator.onLine;
 
-      const idToken = await usuario.getIdToken(true);
-      const solicitud = generarUUID();
+    const registro = await obtenerLocal(
+      "pruebas",
+      crearIdRegistro()
+    );
 
-      const datos = new URLSearchParams({
-        action: "sync",
-        solicitud: solicitud,
-        idRegistro: registro.idRegistro,
-        idToken: idToken,
-        idDispositivo: dispositivo.id,
-        tokenDispositivo: dispositivo.token,
-        timestamp: String(registro.timestamp)
-      });
-
-      await enviarSolicitud(datos);
-
-      const resultado = await esperarResultado(
-        "resultado_sync",
-        solicitud
+    if (registro) {
+      mostrarDetalle(
+        "Simulación guardada anteriormente." +
+        "\nCorreo: " + registro.correo +
+        "\nHora: " +
+        new Date(registro.timestamp).toLocaleTimeString("es-MX") +
+        "\nEstado: Solo local"
       );
-
-      if (!resultado || resultado.ok !== true) {
-        throw new Error(
-          resultado?.mensaje || "No se pudo registrar la asistencia."
-        );
-      }
-
-      await eliminarLocal("pendientes", registro.idRegistro);
-
-      return resultado;
     }
 
+  } catch (error) {
+    mostrar("Error al iniciar: " + error.message);
+  }
+}
 
-    async function registrarAsistenciaReal() {
-      if (procesoEnCurso) return;
 
-      procesoEnCurso = true;
-      botonLlegada.disabled = true;
+/*************************************************
+ * EVENTOS
+ *************************************************/
 
-      try {
-        const idRegistro = crearIdRegistro(dispositivoActual);
+botonValidar.addEventListener("click", verificarServidor);
+botonLlegada.addEventListener("click", simularLlegada);
 
-        const prueba = await obtenerLocal("pruebas", idRegistro);
+window.addEventListener("online", () => {
+  botonValidar.disabled = false;
+  mostrar("Conexión recuperada. Las simulaciones siguen siendo locales.");
+});
 
-        if (prueba) {
-          mostrar(
-            "Este teléfono ya tiene una simulación de llegada hoy. " +
-            "No se generará una asistencia real automáticamente."
-          );
-          return;
-        }
+window.addEventListener("offline", () => {
+  botonValidar.disabled = true;
+  mostrar("Sin conexión. Las simulaciones locales siguen disponibles.");
+});
 
-        const pendiente = await obtenerLocal(
-          "pendientes",
-          idRegistro
-        );
 
-        if (pendiente) {
-          if (!navigator.onLine) {
-            mostrar("Tu asistencia está guardada y pendiente de sincronización.");
-            return;
-          }
+/*************************************************
+ * FIREBASE Y SERVICE WORKER
+ *************************************************/
 
-          await validarTelefono(usuarioActual, dispositivoActual);
+onAuthStateChanged(auth, iniciarAplicacion);
 
-          const resultado = await sincronizarRegistro(
-            usuarioActual,
-            dispositivoActual,
-            pendiente
-          );
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js")
+    .catch(error => console.error("Service Worker:", error));
+}
 
-          mostrar(
-            resultado.duplicado
-              ? "La asistencia ya estaba registrada en el servidor."
-              : "Asistencia sincronizada correctamente."
-          );
-
-          return;
-        }
-
-        const registro = crearRegistro(
-          usuarioActual,
-          dispositivoActual
-        );
-
-        await guardarLocal("pendientes", registro);
-
-        if (!navigator.onLine) {
-          mostrar(
-            "Asistencia guardada en este teléfono.\n\n" +
-            "Se sincronizará cuando vuelva la conexión."
-          );
-          return;
-        }
-
-        await validarTelefono(usuarioActual, dispositivoActual);
-
-        const resultado = await sincronizarRegistro(
-          usuarioActual,
-          dispositivoActual,
-          registro
-        );
-
-        mostrar(
-          resultado.duplicado
-            ? "Tu asistencia ya estaba registrada para hoy."
-            : "¡Asistencia registrada correctamente!"
-        );
-
-        mostrarDetalle(
-          "Correo: " + registro.correo +
-          "\nFecha: " +
-          new Date(registro.timestamp).toLocaleDateString("es-MX") +
-          "\nHora: " +
-          new Date(registro.timestamp).toLocaleTimeString("es-MX") +
-          "\nEstado: Confirmado por el servidor"
-        );
-
-      } catch (error) {
-        mostrar(
-          "La asistencia quedó pendiente o no pudo confirmarse.\n\n" +
-          error.message
-        );
-
-      } finally {
-        procesoEnCurso = false;
-        botonLlegada.disabled = false;
-      }
-    }
-
-
-    /*************************************************
-     * 11. SINCRONIZAR PENDIENTES REALES
-     *************************************************/
-
-    async function sincronizarPendientes() {
-      if (
-        MODO_PRUEBA ||
-        !navigator.onLine ||
-        !usuarioActual ||
-        !dispositivoActual ||
-        procesoEnCurso
-      ) {
-        return;
-      }
-
-      const pendientes = await obtenerTodos("pendientes");
-
-      if (!pendientes.length) return;
-
-      procesoEnCurso = true;
-
-      try {
-        await validarTelefono(usuarioActual, dispositivoActual);
-
-        for (const registro of pendientes) {
-          mostrar("Sincronizando asistencia pendiente...");
-
-          await sincronizarRegistro(
-            usuarioActual,
-            dispositivoActual,
-            registro
-          );
-        }
-
-        mostrar(
-          "Las asistencias pendientes se sincronizaron correctamente."
-        );
-
-      } catch (error) {
-        mostrar(
-          "No se pudo completar la sincronización.\n\n" +
-          error.message
-        );
-
-      } finally {
-        procesoEnCurso = false;
-      }
-    }
-
-
-    /*************************************************
-     * 12. INICIO DE LA APLICACIÓN
-     *************************************************/
-
-    async function iniciarAplicacion(usuario) {
-      usuarioActual = usuario;
-
-      ocultarBoton();
-
-      if (!usuario) {
-        mostrar("No hay una sesión activa. Redirigiendo al acceso...");
-
-        setTimeout(() => {
-          window.location.href = URL_ACCESO;
-        }, 1800);
-
-        return;
-      }
-
-      if (!usuario.email) {
-        mostrar("La cuenta no tiene un correo disponible.");
-        return;
-      }
-
-      try {
-        baseDatos = await abrirBaseDatos();
-
-        dispositivoActual = obtenerDispositivo();
-
-        if (!dispositivoActual) {
-          mostrar(
-            "Este teléfono no tiene una autorización local.\n\n" +
-            "Inicia sesión y vincula primero el dispositivo."
-          );
-
-          setTimeout(() => {
-            window.location.href = URL_ACCESO;
-          }, 2500);
-
-          return;
-        }
-
-        if (MODO_PRUEBA) {
-          mostrar(
-            "Sesión reconocida.\n\n" +
-            "Correo: " + usuario.email +
-            "\nDispositivo: " + obtenerTipoTelefono() +
-            "\nConexión: " +
-            (navigator.onLine ? "Disponible" : "Sin conexión") +
-            "\n\nPuedes realizar una simulación local."
-          );
-
-          mostrarBoton("Simular llegada");
-
-          const registros = await obtenerTodos("pruebas");
-
-          const idHoy = crearIdRegistro(dispositivoActual);
-
-          const registroHoy = registros.find(
-            item => item.idRegistro === idHoy
-          );
-
-          if (registroHoy) {
-            mostrar("Ya existe una simulación guardada para hoy.");
-
-            mostrarDetalle(
-              "Correo: " + registroHoy.correo +
-              "\nHora: " +
-              new Date(registroHoy.timestamp).toLocaleTimeString("es-MX") +
-              "\nEstado: Simulación local"
-            );
-          }
-
-          return;
-        }
-
-        mostrar(
-          "Sesión reconocida.\n\n" +
-          "Pulsa el botón para registrar tu llegada."
-        );
-
-        mostrarBoton("Registrar mi llegada");
-
-        await sincronizarPendientes();
-
-      } catch (error) {
-        console.error(error);
-        mostrar("Error al iniciar la aplicación: " + error.message);
-      }
-    }
-
-
-    /*************************************************
-     * 13. EVENTOS
-     *************************************************/
-
-    botonLlegada.addEventListener("click", async () => {
-      if (!usuarioActual || !dispositivoActual) return;
-
-      if (MODO_PRUEBA) {
-        await simularLlegada();
-      } else {
-        await registrarAsistenciaReal();
-      }
-    });
-
-
-    window.addEventListener("online", async () => {
-      if (MODO_PRUEBA) {
-        mostrar(
-          "Conexión recuperada.\n\n" +
-          "Las simulaciones siguen siendo locales y no se enviarán."
-        );
-        return;
-      }
-
-      await sincronizarPendientes();
-    });
-
-
-    window.addEventListener("offline", () => {
-      mostrar(
-        "No hay conexión a internet.\n\n" +
-        "Las nuevas asistencias reales podrán guardarse localmente " +
-        "si el dispositivo ya fue autorizado."
-      );
-    });
-
-
-    /*************************************************
-     * 14. FIREBASE AUTH
-     *************************************************/
-
-    onAuthStateChanged(auth, usuario => {
-      iniciarAplicacion(usuario);
-    });
-
-
-    /*************************************************
-     * 15. SERVICE WORKER
-     *************************************************/
-
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js")
-        .catch(error => {
-          console.error("Error Service Worker:", error);
-        });
-    }
-
-  </script>
+</script>
 </body>
 </html>
