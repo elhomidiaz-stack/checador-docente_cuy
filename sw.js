@@ -1,5 +1,6 @@
 
-const CACHE_VERSION = "checador-cuy-v2";
+const CACHE_VERSION = "checador-cuy-v3";
+const CACHE_FIREBASE = "checador-firebase-v1";
 
 const ARCHIVOS = [
   "./",
@@ -7,7 +8,14 @@ const ARCHIVOS = [
   "./manifest.json"
 ];
 
-// INSTALACIÓN: guardar archivos básicos.
+const FIREBASE_HOST = "www.gstatic.com";
+const FIREBASE_VERSION = "/firebasejs/13.2.0/";
+
+
+/*******************************************************
+ * INSTALACIÓN
+ *******************************************************/
+
 self.addEventListener("install", event => {
   event.waitUntil(
     caches.open(CACHE_VERSION)
@@ -16,31 +24,99 @@ self.addEventListener("install", event => {
   );
 });
 
-// ACTIVACIÓN: eliminar versiones anteriores.
+
+/*******************************************************
+ * ACTIVACIÓN Y LIMPIEZA
+ *******************************************************/
+
 self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys()
-      .then(claves => Promise.all(
-        claves
-          .filter(clave => clave !== CACHE_VERSION)
-          .map(clave => caches.delete(clave))
+      .then(keys => Promise.all(
+        keys
+          .filter(key =>
+            key !== CACHE_VERSION &&
+            key !== CACHE_FIREBASE
+          )
+          .map(key => caches.delete(key))
       ))
       .then(() => self.clients.claim())
   );
 });
 
-// NAVEGACIÓN Y ARCHIVOS LOCALES.
+
+/*******************************************************
+ * SOLICITUDES DE RED
+ *******************************************************/
+
 self.addEventListener("fetch", event => {
   const solicitud = event.request;
 
-  if (solicitud.method !== "GET") return;
+  if (solicitud.method !== "GET") {
+    return;
+  }
 
   const url = new URL(solicitud.url);
 
-  // No interceptar servicios externos, como Firebase.
-  if (url.origin !== self.location.origin) return;
 
-  // Para la navegación, intentar red y después caché.
+  /*****************************************************
+   * MÓDULOS FIREBASE
+   *****************************************************/
+
+  if (
+    url.hostname === FIREBASE_HOST &&
+    url.pathname.includes(FIREBASE_VERSION)
+  ) {
+    event.respondWith(
+      caches.open(CACHE_FIREBASE)
+        .then(async cache => {
+          const guardado = await cache.match(solicitud);
+
+          if (guardado) {
+            return guardado;
+          }
+
+          const respuesta = await fetch(solicitud);
+
+          if (respuesta.ok) {
+            await cache.put(
+              solicitud,
+              respuesta.clone()
+            );
+          }
+
+          return respuesta;
+        })
+        .catch(() =>
+          new Response(
+            "No se encuentra disponible el módulo de Firebase sin conexión.",
+            {
+              status: 503,
+              headers: {
+                "Content-Type": "text/plain; charset=utf-8"
+              }
+            }
+          )
+        )
+    );
+
+    return;
+  }
+
+
+  /*****************************************************
+   * ARCHIVOS DE LA APLICACIÓN
+   *****************************************************/
+
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+
+  /*****************************************************
+   * PÁGINA PRINCIPAL
+   *****************************************************/
+
   if (solicitud.mode === "navigate") {
     event.respondWith(
       fetch(solicitud)
@@ -49,7 +125,9 @@ self.addEventListener("fetch", event => {
             const copia = respuesta.clone();
 
             caches.open(CACHE_VERSION)
-              .then(cache => cache.put("./index.html", copia));
+              .then(cache =>
+                cache.put("./index.html", copia)
+              );
           }
 
           return respuesta;
@@ -57,10 +135,12 @@ self.addEventListener("fetch", event => {
         .catch(async () => {
           const guardado = await caches.match("./index.html");
 
-          if (guardado) return guardado;
+          if (guardado) {
+            return guardado;
+          }
 
           return new Response(
-            "El checador no está disponible sin conexión.",
+            "El checador no está disponible.",
             {
               status: 503,
               headers: {
@@ -74,36 +154,46 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  // Para los archivos locales, usar caché y actualizar desde red.
+
+  /*****************************************************
+   * RECURSOS LOCALES
+   *****************************************************/
+
   event.respondWith(
-    caches.match(solicitud).then(async guardado => {
-      const solicitudRed = fetch(solicitud)
-        .then(respuesta => {
-          if (respuesta.ok) {
-            const copia = respuesta.clone();
+    caches.match(solicitud)
+      .then(async guardado => {
+        const solicitudRed = fetch(solicitud)
+          .then(respuesta => {
+            if (respuesta.ok) {
+              const copia = respuesta.clone();
 
-            caches.open(CACHE_VERSION)
-              .then(cache => cache.put(solicitud, copia));
-          }
+              caches.open(CACHE_VERSION)
+                .then(cache =>
+                  cache.put(solicitud, copia)
+                );
+            }
 
-          return respuesta;
-        });
+            return respuesta;
+          });
 
-      if (guardado) {
-        event.waitUntil(solicitudRed.catch(() => {}));
-        return guardado;
-      }
+        if (guardado) {
+          event.waitUntil(
+            solicitudRed.catch(() => {})
+          );
 
-      try {
-        return await solicitudRed;
-      } catch (error) {
-        return new Response("Sin conexión", {
-          status: 503,
-          headers: {
-            "Content-Type": "text/plain; charset=utf-8"
-          }
-        });
-      }
-    })
+          return guardado;
+        }
+
+        try {
+          return await solicitudRed;
+        } catch (error) {
+          return new Response("Sin conexión", {
+            status: 503,
+            headers: {
+              "Content-Type": "text/plain; charset=utf-8"
+            }
+          });
+        }
+      })
   );
 });
