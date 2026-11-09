@@ -4,7 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Prueba Firebase - Checador CUY</title>
+  <title>Prueba de acceso - Checador CUY</title>
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -12,6 +13,7 @@
       color: #1e293b;
       padding: 25px;
     }
+
     main {
       max-width: 430px;
       margin: 40px auto;
@@ -19,12 +21,14 @@
       padding: 25px;
       border-radius: 15px;
     }
+
     input, button {
       width: 100%;
       padding: 14px;
       margin-top: 12px;
       box-sizing: border-box;
     }
+
     button {
       background: #1e40af;
       color: white;
@@ -32,28 +36,48 @@
       border-radius: 8px;
       cursor: pointer;
     }
+
+    button:disabled {
+      opacity: .5;
+      cursor: wait;
+    }
+
     #estado {
       margin-top: 20px;
       padding: 12px;
       background: #eff6ff;
       overflow-wrap: anywhere;
+      line-height: 1.5;
+      border-radius: 8px;
     }
   </style>
 </head>
+
 <body>
+
 <main>
   <h2>Prueba de acceso</h2>
   <p>Checador Docente CUY</p>
 
-  <input id="correo" type="email"
-    placeholder="Tu correo electrónico">
+  <input
+    id="correo"
+    type="email"
+    placeholder="Tu correo institucional"
+    autocomplete="email"
+  >
 
-  <button id="enviar">Enviar enlace de acceso</button>
+  <button id="enviar">
+    Enviar enlace de acceso
+  </button>
 
-  <div id="estado">Esperando...</div>
+  <div id="estado">
+    Esperando...
+  </div>
 </main>
 
+
 <script type="module">
+
   import { initializeApp } from
     "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 
@@ -62,7 +86,13 @@
     sendSignInLinkToEmail,
     isSignInWithEmailLink,
     signInWithEmailLink
-  } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
+  } from
+    "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
+
+
+  /***********************
+   * CONFIGURACIÓN
+   ***********************/
 
   const firebaseConfig = {
     apiKey: "AIzaSyAMLtZyqiUkME1HwiGSHOFFw7j-UpmBbJI",
@@ -74,45 +104,247 @@
     measurementId: "G-BP8YEFQDJE"
   };
 
+  const SCRIPT_URL =
+    "https://script.google.com/macros/s/AKfycbzRJzsDDnGsaXzC4NSm0iQMzs6veZtpR-OIZfKkDhZX38r3q8PGZ3U9aoAU56SIIej-/exec";
+
+  const URL_PAGINA =
+    "https://elhomidiaz-stack.github.io/checador-docente_cuy/prueba_firebase.html";
+
+  const CLAVE =
+    "firebase_correo_prueba";
+
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
 
   const estado = document.getElementById("estado");
   const boton = document.getElementById("enviar");
-  const CLAVE = "firebase_correo_prueba";
+  const campoCorreo = document.getElementById("correo");
 
   const configuracionEnlace = {
-    url: "https://elhomidiaz-stack.github.io/checador-docente_cuy/prueba_firebase.html",
+    url: URL_PAGINA,
     handleCodeInApp: true
   };
 
+
+  /***********************
+   * MOSTRAR ESTADO
+   ***********************/
+
+  function mostrar(mensaje) {
+    estado.textContent = mensaje;
+  }
+
+
+  /***********************
+   * ENVIAR ENLACE FIREBASE
+   ***********************/
+
   boton.addEventListener("click", async () => {
-    const correo = document.getElementById("correo")
-      .value.trim().toLowerCase();
+
+    const correo = campoCorreo.value
+      .trim()
+      .toLowerCase();
 
     if (!correo) {
-      estado.textContent = "Escribe tu correo.";
+      mostrar("Escribe tu correo institucional.");
       return;
     }
 
     try {
+
       boton.disabled = true;
+
+      mostrar("Enviando enlace de acceso...");
+
       await sendSignInLinkToEmail(
-        auth, correo, configuracionEnlace
+        auth,
+        correo,
+        configuracionEnlace
       );
 
       localStorage.setItem(CLAVE, correo);
-      estado.textContent =
-        "Enlace enviado. Revisa tu correo electrónico.";
+
+      mostrar(
+        "Enlace enviado correctamente. Revisa tu correo electrónico."
+      );
+
     } catch (error) {
-      estado.textContent =
-        "Error: " + error.code + " — " + error.message;
+
+      mostrar(
+        "Error: " + error.code + " — " + error.message
+      );
+
     } finally {
+
       boton.disabled = false;
+
     }
+
   });
 
+
+  /***********************
+   * CONSULTAR RESULTADO
+   * MEDIANTE JSONP
+   ***********************/
+
+  function consultarResultado(solicitud) {
+
+    return new Promise((resolve, reject) => {
+
+      const callback =
+        "cb_" +
+        crypto.randomUUID().replace(/-/g, "");
+
+      const script = document.createElement("script");
+
+      let terminado = false;
+
+      const limpiar = () => {
+
+        if (terminado) return;
+
+        terminado = true;
+
+        delete window[callback];
+
+        script.remove();
+
+      };
+
+      window[callback] = (resultado) => {
+
+        limpiar();
+        resolve(resultado);
+
+      };
+
+      script.onerror = () => {
+
+        limpiar();
+
+        reject(
+          new Error("No se pudo consultar el resultado.")
+        );
+
+      };
+
+      const parametros = new URLSearchParams({
+        action: "resultado_verificacion",
+        id: solicitud,
+        callback: callback
+      });
+
+      script.src =
+        SCRIPT_URL + "?" + parametros.toString();
+
+      document.body.appendChild(script);
+
+      setTimeout(() => {
+
+        if (!terminado) {
+
+          limpiar();
+
+          reject(
+            new Error("La consulta tardó demasiado.")
+          );
+
+        }
+
+      }, 10000);
+
+    });
+
+  }
+
+
+  /***********************
+   * ENVIAR IDENTIDAD A APPS SCRIPT
+   ***********************/
+
+  async function verificarEnGoogleSheets(usuario) {
+
+    mostrar("Comprobando autorización en la escuela...");
+
+    const idToken = await usuario.getIdToken(true);
+
+    const solicitud = crypto
+      .randomUUID()
+      .replace(/-/g, "");
+
+    const datos = new URLSearchParams();
+
+    datos.append("action", "verificar_docente");
+    datos.append("idToken", idToken);
+    datos.append("solicitud", solicitud);
+
+    // Se utiliza no-cors para enviar el POST simple.
+    // El navegador no permite leer directamente su respuesta.
+    // La confirmación se consulta por separado.
+
+    await fetch(SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+      },
+      body: datos.toString()
+    });
+
+    // Esperar el procesamiento y consultar el resultado.
+
+    for (let intento = 0; intento < 10; intento++) {
+
+      await new Promise(resolve =>
+        setTimeout(resolve, 1200)
+      );
+
+      const resultado =
+        await consultarResultado(solicitud);
+
+      if (resultado && resultado.pendiente) {
+        continue;
+      }
+
+      if (resultado && resultado.autorizado === true) {
+
+        mostrar(
+          "¡ACCESO AUTORIZADO!\n\n" +
+          "Docente: " + resultado.nombre + "\n" +
+          "Correo: " + resultado.correo + "\n\n" +
+          "Firebase y Google Sheets reconocen correctamente esta cuenta."
+        );
+
+        return;
+      }
+
+      if (resultado && resultado.autorizado === false) {
+
+        mostrar(
+          "ACCESO NO AUTORIZADO\n\n" +
+          (resultado.mensaje || "Contacta al administrador.")
+        );
+
+        return;
+      }
+
+    }
+
+    mostrar(
+      "No se recibió una confirmación a tiempo. " +
+      "Comprueba que la implementación de Apps Script esté actualizada."
+    );
+
+  }
+
+
+  /***********************
+   * COMPLETAR INICIO DE SESIÓN
+   ***********************/
+
   async function comprobarEnlace() {
+
     if (!isSignInWithEmailLink(auth, window.location.href)) {
       return;
     }
@@ -120,36 +352,61 @@
     let correo = localStorage.getItem(CLAVE);
 
     if (!correo) {
+
       correo = prompt(
-        "Por seguridad, escribe el mismo correo al que enviamos el enlace:"
+        "Escribe el mismo correo al que enviamos el enlace:"
       );
+
     }
 
     if (!correo) {
-      estado.textContent = "No se proporcionó el correo.";
+
+      mostrar("No se proporcionó el correo electrónico.");
+
       return;
     }
 
     try {
+
+      boton.disabled = true;
+
+      mostrar("Verificando enlace de Firebase...");
+
       const resultado = await signInWithEmailLink(
-        auth, correo, window.location.href
+        auth,
+        correo,
+        window.location.href
       );
 
       localStorage.removeItem(CLAVE);
-      estado.textContent =
-        "¡Acceso verificado! Correo: " +
-        resultado.user.email;
+
       window.history.replaceState(
-        {}, document.title, window.location.pathname
+        {},
+        document.title,
+        window.location.pathname
       );
+
+      await verificarEnGoogleSheets(resultado.user);
+
     } catch (error) {
-      estado.textContent =
-        "Error al verificar: " +
-        error.code + " — " + error.message;
+
+      mostrar(
+        "Error de autenticación: " +
+        error.code + " — " + error.message
+      );
+
+    } finally {
+
+      boton.disabled = false;
+
     }
+
   }
 
+
   comprobarEnlace();
+
 </script>
+
 </body>
 </html>
