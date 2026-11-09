@@ -119,6 +119,10 @@
 
   <script type="module">
 
+    // ========================================
+    // 1. IMPORTACIONES DE FIREBASE
+    // ========================================
+
     import { initializeApp } from
       "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 
@@ -133,7 +137,7 @@
 
 
     // ========================================
-    // 1. FIREBASE
+    // 2. CONFIGURACIÓN FIREBASE
     // ========================================
 
     const firebaseConfig = {
@@ -151,7 +155,7 @@
 
 
     // ========================================
-    // 2. CONFIGURACIÓN DEL SERVIDOR
+    // 3. CONFIGURACIÓN DEL SERVIDOR
     // ========================================
 
     const SCRIPT_URL =
@@ -176,7 +180,7 @@
 
 
     // ========================================
-    // 3. IDENTIFICAR EL DISPOSITIVO
+    // 4. GENERAR IDENTIFICADOR DEL DISPOSITIVO
     // ========================================
 
     function generarTextoAleatorio(bytes) {
@@ -196,6 +200,10 @@
     }
 
 
+    // ========================================
+    // 5. RECUPERAR DISPOSITIVO EXISTENTE
+    // ========================================
+
     function obtenerDispositivo() {
       const guardado = localStorage.getItem(CLAVE_DISPOSITIVO);
 
@@ -203,15 +211,27 @@
         try {
           const dispositivo = JSON.parse(guardado);
 
-          if (
-            dispositivo.id &&
-            dispositivo.token &&
-            dispositivo.estado
-          ) {
+          if (dispositivo.id && dispositivo.token) {
+
+            // Recuperar estados locales antiguos.
+            // El servidor decidirá si sigue autorizado.
+            if (
+              dispositivo.estado === "revocado" ||
+              !dispositivo.estado
+            ) {
+              dispositivo.estado = "autorizado";
+
+              localStorage.setItem(
+                CLAVE_DISPOSITIVO,
+                JSON.stringify(dispositivo)
+              );
+            }
+
             return dispositivo;
           }
+
         } catch (error) {
-          console.error(error);
+          console.error("Error leyendo dispositivo:", error);
         }
       }
 
@@ -230,6 +250,10 @@
     }
 
 
+    // ========================================
+    // 6. IDENTIFICAR TIPO DE DISPOSITIVO
+    // ========================================
+
     function identificarTipoTelefono() {
       const agente = navigator.userAgent || "";
 
@@ -241,7 +265,7 @@
 
 
     // ========================================
-    // 4. CONSULTAR RESPUESTA JSONP
+    // 7. CONSULTAR RESULTADO DEL SERVIDOR
     // ========================================
 
     function consultarResultado(accion, solicitud) {
@@ -306,7 +330,7 @@
 
 
     // ========================================
-    // 5. ENVIAR SOLICITUD AL SERVIDOR
+    // 8. ENVIAR SOLICITUD AL SERVIDOR
     // ========================================
 
     async function enviarSolicitud(datos) {
@@ -323,7 +347,7 @@
 
 
     // ========================================
-    // 6. ESPERAR RESULTADO DEL SERVIDOR
+    // 9. ESPERAR RESPUESTA DEL SERVIDOR
     // ========================================
 
     async function esperarResultado(accion, solicitud) {
@@ -358,7 +382,7 @@
 
 
     // ========================================
-    // 7. VALIDAR DISPOSITIVO EXISTENTE
+    // 10. VALIDAR DISPOSITIVO EXISTENTE
     // ========================================
 
     async function validarDispositivo(usuario, dispositivo) {
@@ -386,19 +410,29 @@
         solicitud
       );
 
-      if (!resultado.ok || !resultado.autorizado) {
+      // IMPORTANTE:
+      // Un error de comunicación no revoca el dispositivo.
+      // Se conserva el identificador y el token originales.
 
-        dispositivo.estado = "revocado";
-
-        localStorage.setItem(
-          CLAVE_DISPOSITIVO,
-          JSON.stringify(dispositivo)
-        );
+      if (!resultado || resultado.ok !== true) {
 
         mostrar(
-          "Acceso denegado.\n\n" +
-          (resultado.mensaje || "Este dispositivo no está autorizado.") +
-          "\n\nContacta a la coordinación."
+          "No se pudo confirmar la autorización.\n\n" +
+          (resultado?.mensaje ||
+          "El servidor no pudo confirmar el dispositivo.") +
+          "\n\nTu registro local se conserva. Puedes intentarlo nuevamente."
+        );
+
+        return;
+      }
+
+      if (resultado.autorizado !== true) {
+
+        mostrar(
+          "El servidor no autorizó este dispositivo.\n\n" +
+          (resultado.mensaje ||
+          "No se pudo confirmar la autorización.") +
+          "\n\nEl identificador y el token se conservaron. Contacta a coordinación."
         );
 
         return;
@@ -422,7 +456,7 @@
 
 
     // ========================================
-    // 8. VINCULAR UN DISPOSITIVO NUEVO
+    // 11. VINCULAR DISPOSITIVO NUEVO
     // ========================================
 
     async function vincularDispositivo(usuario, dispositivo) {
@@ -450,10 +484,14 @@
         solicitud
       );
 
-      if (!resultado.ok || !resultado.autorizado) {
+      if (!resultado || resultado.ok !== true ||
+          resultado.autorizado !== true) {
+
         mostrar(
           "No fue posible autorizar este teléfono.\n\n" +
-          (resultado.mensaje || "El servidor rechazó la solicitud.")
+          (resultado?.mensaje ||
+          "El servidor no pudo confirmar la solicitud.") +
+          "\n\nEl identificador del dispositivo se conserva."
         );
 
         return;
@@ -477,7 +515,7 @@
 
 
     // ========================================
-    // 9. DECIDIR SI VALIDAR O VINCULAR
+    // 12. DECIDIR SI VALIDAR O VINCULAR
     // ========================================
 
     async function procesarUsuario(usuario) {
@@ -488,18 +526,12 @@
       formulario.style.display = "none";
 
       try {
+
         const dispositivo = obtenerDispositivo();
 
         if (dispositivo.estado === "autorizado") {
 
           await validarDispositivo(usuario, dispositivo);
-
-        } else if (dispositivo.estado === "revocado") {
-
-          mostrar(
-            "Este dispositivo fue rechazado anteriormente.\n\n" +
-            "Contacta a la coordinación para solicitar autorización."
-          );
 
         } else {
 
@@ -507,11 +539,13 @@
         }
 
       } catch (error) {
+
         console.error(error);
 
         mostrar(
           "No se pudo completar la comprobación.\n\n" +
-          error.message
+          error.message +
+          "\n\nTu dispositivo permanece guardado."
         );
 
       } finally {
@@ -521,7 +555,7 @@
 
 
     // ========================================
-    // 10. ENVIAR ENLACE DE ACCESO
+    // 13. ENVIAR ENLACE DE ACCESO
     // ========================================
 
     botonEnviar.addEventListener("click", async () => {
@@ -540,6 +574,7 @@
       mostrar("Enviando enlace de acceso...");
 
       try {
+
         await sendSignInLinkToEmail(auth, correo, {
           url: URL_PAGINA,
           handleCodeInApp: true
@@ -554,6 +589,7 @@
         );
 
       } catch (error) {
+
         console.error(error);
 
         mostrar(
@@ -568,7 +604,7 @@
 
 
     // ========================================
-    // 11. COMPLETAR AUTENTICACIÓN
+    // 14. COMPLETAR AUTENTICACIÓN
     // ========================================
 
     async function comprobarEnlace() {
@@ -591,6 +627,7 @@
       }
 
       try {
+
         mostrar("Verificando enlace de acceso...");
 
         await signInWithEmailLink(
@@ -610,6 +647,7 @@
         mostrar("Acceso verificado. Comprobando dispositivo...");
 
       } catch (error) {
+
         console.error(error);
 
         mostrar(
@@ -621,15 +659,17 @@
 
 
     // ========================================
-    // 12. RECONOCER SESIÓN AUTOMÁTICAMENTE
+    // 15. RECONOCER SESIÓN AUTOMÁTICAMENTE
     // ========================================
 
     onAuthStateChanged(auth, usuario => {
 
       if (usuario) {
+
         procesarUsuario(usuario);
 
       } else {
+
         formulario.style.display = "block";
 
         if (!isSignInWithEmailLink(auth, window.location.href)) {
@@ -640,7 +680,7 @@
 
 
     // ========================================
-    // 13. INICIAR
+    // 16. INICIAR
     // ========================================
 
     comprobarEnlace();
