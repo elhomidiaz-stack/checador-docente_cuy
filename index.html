@@ -1,486 +1,415 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#171717" />
-  <meta name="description" content="Registro de asistencia docente del Colegio Universitario de Yahualica" />
-  <link rel="manifest" href="./manifest.json" />
-  <title>Checador CUY</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 22px;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #171717;
-      color: #f5f5f5;
-      font-family: Arial, sans-serif;
-    }
-    main {
-      width: 100%;
-      max-width: 460px;
-      padding: 28px;
-      background: #242424;
-      border: 1px solid #414141;
-      border-radius: 17px;
-    }
-    h1 { font-size: 25px; }
-    p {
-      color: #c9c9c9;
-      line-height: 1.5;
-    }
-    #estado, #detalle {
-      margin-top: 20px;
-      padding: 18px;
-      background: #333;
-      border-radius: 10px;
-      line-height: 1.7;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-    }
-    #detalle { display: none; }
-    .etiqueta {
-      display: inline-block;
-      padding: 5px 9px;
-      border-radius: 6px;
-      background: #806b31;
-      color: #fff1bd;
-      font-size: 11px;
-      font-weight: bold;
-    }
-    .pie {
-      margin-top: 22px;
-      font-size: 12px;
-      color: #999;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport"
+ content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#176b45">
+<link rel="manifest" href="./manifest.json">
+<title>Control de asistencia CUY</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 20px;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #edf1f5;
+  font-family: Arial, sans-serif;
+}
+
+.card {
+  width: 100%;
+  max-width: 390px;
+  background: white;
+  border-radius: 18px;
+  padding: 30px 24px;
+  text-align: center;
+  box-shadow: 0 5px 25px #00000015;
+}
+
+.icon { font-size: 48px; }
+h1 { color: #202c35; font-size: 24px; }
+
+p {
+  color: #777;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+input, button {
+  width: 100%;
+  padding: 15px;
+  border-radius: 9px;
+  font-size: 16px;
+  margin-top: 12px;
+}
+
+input { border: 1px solid #ccc; }
+
+button {
+  border: none;
+  background: #176b45;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:disabled { opacity: .5; }
+
+.secundario {
+  background: white;
+  border: 1px solid #176b45;
+  color: #176b45;
+}
+
+#mensaje {
+  margin-top: 20px;
+  padding: 15px;
+  border-radius: 10px;
+  white-space: pre-line;
+  font-size: 14px;
+  display: none;
+}
+
+.exito {
+  display: block !important;
+  background: #e2f5e9;
+  color: #176b45;
+}
+
+.pendiente {
+  display: block !important;
+  background: #fff1d5;
+  color: #875900;
+}
+
+.error {
+  display: block !important;
+  background: #ffe5e5;
+  color: #a02020;
+}
+
+.pie {
+  margin-top: 25px;
+  font-size: 11px;
+  color: #999;
+}
+</style>
 </head>
 
 <body>
-  <main>
-    <span class="etiqueta">REGISTRO INSTITUCIONAL</span>
-    <h1>Checador CUY</h1>
-    <p>Sistema institucional de registro de asistencia docente.</p>
+<div class="card">
+  <div class="icon">📲</div>
+  <h1>Control de asistencia</h1>
+  <p>Colegio Universitario de Yahualica</p>
 
-    <div id="estado">Iniciando sistema...</div>
-    <div id="detalle"></div>
+  <div id="formulario">
+    <p>Ingresa tu correo la primera vez.</p>
+    <input type="email" id="correo"
+      placeholder="correo@ejemplo.com"
+      autocomplete="email">
+    <button onclick="guardarCorreo()">
+      Guardar correo y registrar
+    </button>
+  </div>
 
-    <p class="pie">
-      Colegio Universitario de Yahualica · Control de asistencia
-    </p>
-  </main>
+  <div id="mensaje" role="status"
+       aria-live="polite"></div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
+  <button class="secundario"
+    onclick="sincronizar()">
+    Sincronizar pendientes
+  </button>
 
-    // Configuración de Firebase
-    const firebaseConfig = {
-      apiKey: "AIzaSyAMLtZyqiUkME1HwiGSHOFFw7j-UpmBbJI",
-      authDomain: "checador-docente-cuy.firebaseapp.com",
-      projectId: "checador-docente-cuy",
-      storageBucket: "checador-docente-cuy.firebasestorage.app",
-      messagingSenderId: "15127097699",
-      appId: "1:15127097699:web:308aae0b17e363ad5b2356",
-      measurementId: "G-BP8YEFQDJE"
+  <button class="secundario"
+    onclick="cambiarCorreo()">
+    Cambiar correo
+  </button>
+
+  <div class="pie" id="estado">
+    Sistema de asistencia NFC
+  </div>
+</div>
+
+<script>
+// PEGA AQUÍ LA URL /exec DE TU APPS SCRIPT.
+const SCRIPT_URL = 'PEGA_AQUI_TU_URL_EXEC';
+
+const CLAVE_CORREO = 'cuy_correo';
+const CLAVE_PENDIENTES = 'cuy_pendientes';
+const CLAVE_HISTORIAL = 'cuy_historial';
+
+let sincronizando = false;
+
+function leer(clave, defecto) {
+  try {
+    return JSON.parse(localStorage.getItem(clave))
+      ?? defecto;
+  } catch {
+    return defecto;
+  }
+}
+
+function guardar(clave, valor) {
+  localStorage.setItem(clave, JSON.stringify(valor));
+}
+
+function mostrar(texto, tipo) {
+  const el = document.getElementById('mensaje');
+  el.textContent = texto;
+  el.className = tipo;
+}
+
+function fechaLocal(iso) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Mexico_City',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date(iso));
+}
+
+function dispositivo() {
+  const ua = navigator.userAgent;
+  if (/Android/i.test(ua)) return 'Android';
+  if (/iPhone|iPad/i.test(ua)) return 'iPhone';
+  if (/Windows/i.test(ua)) return 'Windows';
+  return 'Otro';
+}
+
+function guardarCorreo() {
+  const correo = document.getElementById('correo')
+    .value.trim().toLowerCase();
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+    mostrar('Ingresa un correo válido.', 'error');
+    return;
+  }
+
+  try {
+    localStorage.setItem(CLAVE_CORREO, correo);
+  } catch {
+    mostrar('No se pudo guardar el correo.', 'error');
+    return;
+  }
+
+  document.getElementById('formulario')
+    .style.display = 'none';
+
+  crearRegistro(correo);
+}
+
+function crearRegistro(correo) {
+  const instante = new Date().toISOString();
+  const dia = fechaLocal(instante);
+
+  const pendientes = leer(CLAVE_PENDIENTES, []);
+  const historial = leer(CLAVE_HISTORIAL, []);
+
+  const existe = [...pendientes, ...historial]
+    .some(r => r.correo === correo &&
+      fechaLocal(r.instante) === dia);
+
+  if (existe) {
+    mostrar(
+      'Tu asistencia de hoy ya fue registrada o está pendiente.',
+      'pendiente'
+    );
+    sincronizar();
+    return;
+  }
+
+  const registro = {
+    id: crypto.randomUUID(),
+    correo,
+    instante,
+    dispositivo: dispositivo()
+  };
+
+  try {
+    pendientes.push(registro);
+    guardar(CLAVE_PENDIENTES, pendientes);
+  } catch {
+    mostrar(
+      'No se pudo guardar el registro en el teléfono.',
+      'error'
+    );
+    return;
+  }
+
+  mostrar(
+    'Asistencia guardada.\nHora del escaneo: ' +
+    new Date(instante).toLocaleTimeString('es-MX') +
+    '\nSe enviará cuando haya conexión.',
+    'pendiente'
+  );
+
+  sincronizar();
+}
+
+function enviarRegistro(registro) {
+  return new Promise((resolve, reject) => {
+    const callback = 'cuyRespuesta_' +
+      Math.random().toString(36).slice(2);
+
+    const script = document.createElement('script');
+    let terminado = false;
+
+    const limpiar = () => {
+      delete window[callback];
+      script.remove();
+      clearTimeout(timeout);
     };
 
-    // URLs y constantes
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyXlKZuyW8NkhM8Jwut84LDVXCQIsx-8Fa0wZ8Jkcdo57s3ZqAnD9Q0IOXgJvw9AKXY/exec";
-    const URL_ACCESO = "https://elhomidiaz-stack.github.io/checador-docente_cuy/prueba_firebase.html";
-    const CLAVE_DISPOSITIVO = "checador_dispositivo_v1";
-    const DB_NOMBRE = "ChecadorCUY";
-    const DB_VERSION = 2;
-
-    // Inicializar Firebase
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-
-    // Elementos DOM
-    const estado = document.getElementById("estado");
-    const detalle = document.getElementById("detalle");
-
-    let db = null;
-    let procesando = false;
-
-    // Funciones auxiliares
-    function mostrar(mensaje) {
-      estado.textContent = mensaje;
-    }
-
-    function mostrarDetalle(mensaje) {
-      detalle.textContent = mensaje;
-      detalle.style.display = "block";
-    }
-
-    function uuid() {
-      return crypto.randomUUID();
-    }
-
-    function normalizarCorreo(correo) {
-      return String(correo || "").trim().toLowerCase();
-    }
-
-    function tipoTelefono() {
-      const agente = navigator.userAgent || "";
-      if (/iPhone|iPad|iPod/i.test(agente)) return "iPhone";
-      if (/Android/i.test(agente)) return "Android";
-      return "Otro dispositivo";
-    }
-
-    function obtenerDispositivo(correo) {
-      try {
-        const texto = localStorage.getItem(CLAVE_DISPOSITIVO);
-        if (!texto) return null;
-        const dispositivo = JSON.parse(texto);
-        if (dispositivo.id && dispositivo.token && dispositivo.estado === "autorizado" && normalizarCorreo(dispositivo.correo) === normalizarCorreo(correo)) {
-          return dispositivo;
-        }
-      } catch {
-        // Ignorar errores de parseo
-      }
-      return null;
-    }
-
-    function guardarDispositivo(dispositivo) {
-      localStorage.setItem(CLAVE_DISPOSITIVO, JSON.stringify(dispositivo));
-    }
-
-    function fechaMexico() {
-      const partes = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "America/Mexico_City",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit"
-      }).formatToParts(new Date());
-
-      const valores = {};
-      partes.forEach(p => { valores[p.type] = p.value; });
-      return valores.year + valores.month + valores.day;
-    }
-
-    function fechaLegible(timestamp) {
-      return new Date(timestamp).toLocaleDateString("es-MX", { timeZone: "America/Mexico_City" });
-    }
-
-    function horaLegible(timestamp) {
-      return new Date(timestamp).toLocaleTimeString("es-MX", { timeZone: "America/Mexico_City" });
-    }
-
-    // IndexedDB (base de datos local)
-    function abrirDB() {
-      return new Promise((resolve, reject) => {
-        const solicitud = indexedDB.open(DB_NOMBRE, DB_VERSION);
-        solicitud.onupgradeneeded = event => {
-          const base = event.target.result;
-          if (!base.objectStoreNames.contains("asistencias")) {
-            base.createObjectStore("asistencias", { keyPath: "idRegistro" });
-          }
-        };
-        solicitud.onsuccess = () => resolve(solicitud.result);
-        solicitud.onerror = () => reject(solicitud.error);
-      });
-    }
-
-    function guardarLocal(registro) {
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction("asistencias", "readwrite");
-        tx.objectStore("asistencias").put(registro);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(tx.error);
-      });
-    }
-
-    function buscarLocal(id) {
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction("asistencias", "readonly");
-        const solicitud = tx.objectStore("asistencias").get(id);
-        solicitud.onsuccess = () => resolve(solicitud.result || null);
-        solicitud.onerror = () => reject(solicitud.error);
-      });
-    }
-
-    function obtenerPendientes(correo) {
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction("asistencias", "readonly");
-        const solicitud = tx.objectStore("asistencias").getAll();
-        solicitud.onsuccess = () => {
-          const correoActual = normalizarCorreo(correo);
-          const pendientes = solicitud.result.filter(registro => !registro.sincronizado && normalizarCorreo(registro.correo) === correoActual);
-          resolve(pendientes);
-        };
-        solicitud.onerror = () => reject(solicitud.error);
-      });
-    }
-
-    // Comunicación con el servidor Apps Script vía JSONP y POST
-    function consultarServidor(accion, solicitud) {
-      return new Promise((resolve, reject) => {
-        const callback = "cuy_" + uuid().replace(/-/g, "");
-        const script = document.createElement("script");
-        let terminado = false;
-
-        function limpiar() {
-          clearTimeout(temporizador);
-          delete window[callback];
-          script.remove();
-        }
-
-        const temporizador = setTimeout(() => {
-          if (terminado) return;
-          terminado = true;
-          limpiar();
-          reject(new Error("Tiempo de espera agotado."));
-        }, 12000);
-
-        window[callback] = resultado => {
-          if (terminado) return;
-          terminado = true;
-          limpiar();
-          resolve(resultado);
-        };
-
-        const parametros = new URLSearchParams({ action: accion, id: solicitud, callback });
-        script.src = SCRIPT_URL + "?" + parametros.toString();
-
-        script.onerror = () => {
-          if (terminado) return;
-          terminado = true;
-          limpiar();
-          reject(new Error("No se pudo consultar el servidor."));
-        };
-
-        document.body.appendChild(script);
-      });
-    }
-
-    async function enviarPOST(datos) {
-      await fetch(SCRIPT_URL, {
-        method: "POST",
-        mode: "cors",
-        headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-        body: datos.toString()
-      });
-    }
-
-    async function esperarResultado(accion, solicitud) {
-      for (let intento = 0; intento < 20; intento++) {
-        if (!navigator.onLine) throw new Error("Se perdió la conexión a internet.");
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        try {
-          const resultado = await consultarServidor(accion, solicitud);
-          if (resultado?.pendiente === true) {
-            continue;
-          }
-          if (!resultado || resultado.ok !== true) {
-            throw new Error(resultado?.mensaje || "El servidor rechazó la solicitud.");
-          }
-          return resultado;
-        } catch (error) {
-          if (["No se pudo consultar el servidor.", "Tiempo de espera agotado."].includes(error.message)) {
-            console.log("Reintentando consulta:", error.message);
-          } else {
-            throw error;
-          }
-        }
-      }
-      throw new Error("El servidor no confirmó la operación.");
-    }
-
-    // Validación y sincronización
-    async function validarTelefono(usuario, dispositivo) {
-      const correo = normalizarCorreo(usuario.email);
-      if (normalizarCorreo(dispositivo.correo) !== correo) {
-        throw new Error("El dispositivo no pertenece a la cuenta que inició sesión.");
-      }
-      const idToken = await usuario.getIdToken(true);
-      const solicitud = uuid();
-
-      const datos = new URLSearchParams({
-        action: "validar_dispositivo",
-        idToken,
-        idDispositivo: dispositivo.id,
-        tokenDispositivo: dispositivo.token,
-        tipoDispositivo: tipoTelefono(),
-        solicitud
-      });
-
-      await enviarPOST(datos);
-      const resultado = await esperarResultado("resultado_validacion_dispositivo", solicitud);
-
-      if (resultado.autorizado !== true) {
-        throw new Error(resultado.mensaje || "El teléfono no está autorizado.");
-      }
-
-      dispositivo.autorizacionOffline = true;
-      dispositivo.ultimaValidacion = Date.now();
-      guardarDispositivo(dispositivo);
-
-      return resultado;
-    }
-
-    async function sincronizarRegistro(usuario, dispositivo, registro) {
-      if (!navigator.onLine) throw new Error("No hay conexión para sincronizar.");
-      if (normalizarCorreo(registro.correo) !== normalizarCorreo(usuario.email)) {
-        throw new Error("El registro pendiente pertenece a otra cuenta.");
-      }
-      const idToken = await usuario.getIdToken(true);
-      const solicitud = uuid();
-
-      const datos = new URLSearchParams({
-        action: "sync",
-        solicitud,
-        idRegistro: registro.idRegistro,
-        idToken,
-        idDispositivo: dispositivo.id,
-        tokenDispositivo: dispositivo.token,
-        timestamp: String(registro.timestamp)
-      });
-
-      await enviarPOST(datos);
-
-      const resultado = await esperarResultado("resultado_sync", solicitud);
-
-      registro.sincronizado = true;
-      registro.resultadoServidor = resultado;
-
-      await guardarLocal(registro);
-
-      return resultado;
-    }
-
-    async function registrarLlegada(usuario, dispositivo) {
-      const correo = normalizarCorreo(usuario.email);
-      const idRegistro = dispositivo.id + fechaMexico();
-
-      let registro = await buscarLocal(idRegistro);
-
-      if (registro && normalizarCorreo(registro.correo) !== correo) {
-        throw new Error("El registro local no corresponde a la cuenta actual.");
-      }
-
-      if (registro && registro.sincronizado) {
-        mostrar("La asistencia de hoy ya fue procesada.");
-        mostrarDetalle(
-          `Correo: ${correo}\nFecha: ${fechaLegible(registro.timestamp)}\nHora: ${horaLegible(registro.timestamp)}\nEstado: Enviado al servidor`
-        );
-        return;
-      }
-
-      if (!registro) {
-        registro = {
-          idRegistro,
-          correo,
-          timestamp: Date.now(),
-          tipoDispositivo: tipoTelefono(),
-          sincronizado: false
-        };
-        await guardarLocal(registro);
-      }
-
-      if (!navigator.onLine) {
-        mostrar("Asistencia guardada en este teléfono.");
-        mostrarDetalle(
-          `Correo: ${correo}\nFecha: ${fechaLegible(registro.timestamp)}\nHora: ${horaLegible(registro.timestamp)}\nEstado: Pendiente de sincronización\n\nSe enviará cuando vuelva internet.`
-        );
-        return;
-      }
-
-      mostrar("Registrando llegada en Google Sheets...");
-
-      const resultado = await sincronizarRegistro(usuario, dispositivo, registro);
-
-      if (resultado.duplicado) {
-        mostrar("La asistencia ya estaba registrada.");
-      } else {
-        mostrar("¡Asistencia registrada correctamente!");
-      }
-
-      mostrarDetalle(
-        `Correo: ${correo}\nFecha: ${resultado.fecha || fechaLegible(registro.timestamp)}\nHora: ${resultado.hora || horaLegible(registro.timestamp)}\nDispositivo: ${tipoTelefono()}\nConsecutivo: ${resultado.consecutivo || "Ya existente"}\nEstado: Confirmado por Google Sheets`
-      );
-    }
-
-    async function sincronizarPendientes(usuario, dispositivo) {
-      const pendientes = await obtenerPendientes(usuario.email);
-      for (const registro of pendientes) {
-        if (!navigator.onLine) break;
-        mostrar("Enviando asistencia pendiente...");
-        try {
-          const resultado = await sincronizarRegistro(usuario, dispositivo, registro);
-          console.log("Asistencia sincronizada:", resultado);
-        } catch (error) {
-          console.error("No se pudo sincronizar una asistencia:", error);
-          break;
-        }
-      }
-    }
-
-    // Proceso principal
-    async function iniciar(usuario) {
-      if (procesando) return;
-      procesando = true;
-
-      try {
-        if (!usuario) {
-          mostrar("Necesitas iniciar sesión. Abriendo acceso institucional...");
-          setTimeout(() => { window.location.replace(URL_ACCESO); }, 1200);
-          return;
-        }
-
-        if (!usuario.email) {
-          throw new Error("La cuenta de Firebase no tiene un correo electrónico disponible.");
-        }
-
-        db = await abrirDB();
-
-        const dispositivo = obtenerDispositivo(usuario.email);
-
-        if (!dispositivo) {
-          mostrar("Este teléfono necesita autorización. Abriendo acceso institucional...");
-          setTimeout(() => { window.location.replace(URL_ACCESO); }, 1500);
-          return;
-        }
-
-        if (navigator.onLine) {
-          mostrar("Comprobando autorización del teléfono...");
-          await validarTelefono(usuario, dispositivo);
-          await sincronizarPendientes(usuario, dispositivo);
-          await registrarLlegada(usuario, dispositivo);
-          return;
-        }
-
-        if (dispositivo.autorizacionOffline !== true) {
-          mostrar("Se necesita internet para autorizar este teléfono.");
-          mostrarDetalle("Este dispositivo todavía no tiene una validación previa guardada.\n\nConéctate a internet para completar su autorización.");
-          return;
-        }
-
-        await registrarLlegada(usuario, dispositivo);
-
-      } catch (error) {
-        console.error(error);
-        mostrar("No se pudo completar el registro.\n\n" + error.message);
-      } finally {
-        procesando = false;
-      }
-    }
-
-    // Observador de estado de autenticación
-    onAuthStateChanged(auth, iniciar);
-
-    // Detectar cuando vuelve la conexión para sincronizar
-    window.addEventListener("online", async () => {
-      if (auth.currentUser && !procesando) {
-        await iniciar(auth.currentUser);
-      }
+    window[callback] = respuesta => {
+      if (terminado) return;
+      terminado = true;
+      limpiar();
+      resolve(respuesta);
+    };
+
+    const parametros = new URLSearchParams({
+      accion: 'registrar',
+      callback,
+      id: registro.id,
+      correo: registro.correo,
+      instante: registro.instante,
+      dispositivo: registro.dispositivo,
+      _: String(Date.now())
     });
-  </script>
+
+    script.src = SCRIPT_URL + '?' + parametros;
+
+    script.onerror = () => {
+      if (terminado) return;
+      terminado = true;
+      limpiar();
+      reject(new Error('Sin conexión'));
+    };
+
+    const timeout = setTimeout(() => {
+      if (terminado) return;
+      terminado = true;
+      limpiar();
+      reject(new Error('Tiempo agotado'));
+    }, 20000);
+
+    document.head.appendChild(script);
+  });
+}
+
+async function sincronizar() {
+  if (sincronizando || !navigator.onLine) return;
+
+  if (!SCRIPT_URL.startsWith('https://')) {
+    mostrar('Configura la URL de Apps Script.', 'error');
+    return;
+  }
+
+  sincronizando = true;
+
+  try {
+    const lista = leer(CLAVE_PENDIENTES, []);
+
+    for (const registro of lista) {
+      let respuesta;
+
+      try {
+        respuesta = await enviarRegistro(registro);
+      } catch {
+        break;
+      }
+
+      if (
+        respuesta.estado === 'exito' ||
+        respuesta.estado === 'duplicado'
+      ) {
+        // Guardar primero el acuse local.
+        const historial = leer(CLAVE_HISTORIAL, []);
+        if (!historial.some(r => r.id === registro.id)) {
+          historial.push(registro);
+          guardar(CLAVE_HISTORIAL, historial);
+        }
+
+        const restantes = leer(CLAVE_PENDIENTES, [])
+          .filter(r => r.id !== registro.id);
+
+        guardar(CLAVE_PENDIENTES, restantes);
+
+        mostrar(
+          respuesta.estado === 'exito'
+            ? '¡ASISTENCIA REGISTRADA!\nFecha: ' +
+              respuesta.fecha + '\nHora: ' + respuesta.hora
+            : 'Tu asistencia ya estaba registrada.',
+          'exito'
+        );
+      } else {
+        mostrar(
+          respuesta.mensaje || 'Error del servidor',
+          'error'
+        );
+        break;
+      }
+    }
+
+  } finally {
+    sincronizando = false;
+    actualizarEstado();
+  }
+}
+
+function actualizarEstado() {
+  const total = leer(CLAVE_PENDIENTES, []).length;
+
+  document.getElementById('estado').textContent =
+    total
+      ? total + ' registro(s) pendiente(s)'
+      : 'Todos los registros sincronizados';
+}
+
+function cambiarCorreo() {
+  if (!confirm(
+    '¿Cambiar el correo de este dispositivo?'
+  )) return;
+
+  localStorage.removeItem(CLAVE_CORREO);
+  document.getElementById('formulario')
+    .style.display = 'block';
+
+  document.getElementById('correo').value = '';
+  mostrar('Ingresa el nuevo correo.', 'pendiente');
+}
+
+window.addEventListener('online', sincronizar);
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) sincronizar();
+});
+
+window.addEventListener('load', () => {
+  actualizarEstado();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js')
+      .catch(console.error);
+  }
+
+  const correo = localStorage.getItem(CLAVE_CORREO);
+
+  if (correo) {
+    document.getElementById('formulario')
+      .style.display = 'none';
+    crearRegistro(correo);
+  } else {
+    sincronizar();
+  }
+});
+</script>
 </body>
 </html>
