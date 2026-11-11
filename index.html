@@ -3,8 +3,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport"
- content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#176b45">
 <link rel="manifest" href="./manifest.json">
 <title>Control de asistencia CUY</title>
@@ -104,225 +103,472 @@ button:disabled { opacity: .5; }
 </head>
 
 <body>
+
 <div class="card">
+
   <div class="icon">📲</div>
   <h1>Control de asistencia</h1>
   <p>Colegio Universitario de Yahualica</p>
 
   <div id="formulario">
-    <p>Ingresa tu correo la primera vez.</p>
-    <input type="email" id="correo"
-      placeholder="correo@ejemplo.com"
-      autocomplete="email">
-    <button onclick="guardarCorreo()">
+    <p>Ingresa tu correo institucional la primera vez.</p>
+
+    <input
+      type="email"
+      id="correo"
+      placeholder="correo@colegio.edu.mx"
+      autocomplete="email"
+    >
+
+    <button id="btnGuardar" onclick="guardarCorreo()">
       Guardar correo y registrar
     </button>
   </div>
 
-  <div id="mensaje" role="status"
-       aria-live="polite"></div>
+  <div id="mensaje" role="status" aria-live="polite"></div>
 
-  <button class="secundario"
-    onclick="sincronizar()">
+  <button class="secundario" onclick="sincronizar()">
     Sincronizar pendientes
   </button>
 
-  <button class="secundario"
-    onclick="cambiarCorreo()">
+  <button class="secundario" onclick="cambiarCorreo()">
     Cambiar correo
   </button>
 
   <div class="pie" id="estado">
     Sistema de asistencia NFC
   </div>
+
 </div>
 
 <script>
-// PEGA AQUÍ LA URL /exec DE TU APPS SCRIPT.
-const SCRIPT_URL = 'PEGA_AQUI_TU_URL_EXEC';
+
+// ================================================
+// CONFIGURACIÓN
+// ================================================
+
+const SCRIPT_URL =
+'https://script.google.com/macros/s/AKfycbyXlKZuyW8NkhM8Jwut84LDVXCQIsx-8Fa0wZ8Jkcdo57s3ZqAnD9Q0IOXgJvw9AKXY/exec';
 
 const CLAVE_CORREO = 'cuy_correo';
-const CLAVE_PENDIENTES = 'cuy_pendientes';
-const CLAVE_HISTORIAL = 'cuy_historial';
 
+const DB_NOMBRE = 'ChecadorCUY';
+const DB_VERSION = 1;
+
+let db = null;
 let sincronizando = false;
 
-function leer(clave, defecto) {
-  try {
-    return JSON.parse(localStorage.getItem(clave))
-      ?? defecto;
-  } catch {
-    return defecto;
-  }
+
+// ================================================
+// BASE DE DATOS LOCAL INDEXEDDB
+// ================================================
+
+function abrirDB() {
+
+  return new Promise((resolve, reject) => {
+
+    const solicitud = indexedDB.open(
+      DB_NOMBRE,
+      DB_VERSION
+    );
+
+    solicitud.onupgradeneeded = event => {
+
+      const base = event.target.result;
+
+      if (!base.objectStoreNames.contains('pendientes')) {
+        base.createObjectStore(
+          'pendientes',
+          { keyPath: 'id' }
+        );
+      }
+
+      if (!base.objectStoreNames.contains('historial')) {
+        base.createObjectStore(
+          'historial',
+          { keyPath: 'id' }
+        );
+      }
+    };
+
+    solicitud.onsuccess = () => {
+      db = solicitud.result;
+      resolve(db);
+    };
+
+    solicitud.onerror = () => {
+      reject(solicitud.error);
+    };
+
+  });
 }
 
-function guardar(clave, valor) {
-  localStorage.setItem(clave, JSON.stringify(valor));
+
+function obtenerTodos(nombre) {
+
+  return new Promise((resolve, reject) => {
+
+    const transaccion = db.transaction(
+      nombre,
+      'readonly'
+    );
+
+    const solicitud = transaccion
+      .objectStore(nombre)
+      .getAll();
+
+    solicitud.onsuccess = () => resolve(
+      solicitud.result || []
+    );
+
+    solicitud.onerror = () => reject(
+      solicitud.error
+    );
+
+  });
 }
+
+
+function guardarPendiente(registro) {
+
+  return new Promise((resolve, reject) => {
+
+    const transaccion = db.transaction(
+      'pendientes',
+      'readwrite'
+    );
+
+    transaccion.objectStore('pendientes')
+      .put(registro);
+
+    transaccion.oncomplete = resolve;
+    transaccion.onerror = () => reject(
+      transaccion.error
+    );
+
+  });
+}
+
+
+function moverAHistorial(registro) {
+
+  return new Promise((resolve, reject) => {
+
+    const transaccion = db.transaction(
+      ['pendientes', 'historial'],
+      'readwrite'
+    );
+
+    transaccion.objectStore('historial')
+      .put(registro);
+
+    transaccion.objectStore('pendientes')
+      .delete(registro.id);
+
+    transaccion.oncomplete = resolve;
+    transaccion.onerror = () => reject(
+      transaccion.error
+    );
+
+  });
+}
+
+
+// ================================================
+// FUNCIONES GENERALES
+// ================================================
 
 function mostrar(texto, tipo) {
-  const el = document.getElementById('mensaje');
-  el.textContent = texto;
-  el.className = tipo;
+
+  const elemento = document.getElementById('mensaje');
+
+  elemento.textContent = texto;
+  elemento.className = tipo;
 }
+
 
 function fechaLocal(iso) {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Mexico_City',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(new Date(iso));
+
+  const partes = new Intl.DateTimeFormat(
+    'en-CA',
+    {
+      timeZone: 'America/Mexico_City',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }
+  ).formatToParts(new Date(iso));
+
+  const valores = {};
+
+  partes.forEach(p => {
+    valores[p.type] = p.value;
+  });
+
+  return valores.year + '-' +
+    valores.month + '-' + valores.day;
 }
+
+
+function horaLocal(iso) {
+
+  return new Intl.DateTimeFormat(
+    'es-MX',
+    {
+      timeZone: 'America/Mexico_City',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }
+  ).format(new Date(iso));
+}
+
 
 function dispositivo() {
+
   const ua = navigator.userAgent;
-  if (/Android/i.test(ua)) return 'Android';
-  if (/iPhone|iPad/i.test(ua)) return 'iPhone';
-  if (/Windows/i.test(ua)) return 'Windows';
-  return 'Otro';
+
+  let equipo = 'Otro';
+
+  if (/Android/i.test(ua)) {
+    equipo = 'Android';
+  } else if (/iPhone|iPad|iPod/i.test(ua)) {
+    equipo = 'iPhone/iPad';
+  } else if (/Windows/i.test(ua)) {
+    equipo = 'Windows';
+  } else if (/Macintosh/i.test(ua)) {
+    equipo = 'Mac';
+  }
+
+  return equipo;
 }
 
-function guardarCorreo() {
+
+// ================================================
+// GUARDAR CORREO
+// ================================================
+
+async function guardarCorreo() {
+
   const correo = document.getElementById('correo')
     .value.trim().toLowerCase();
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+
     mostrar('Ingresa un correo válido.', 'error');
     return;
   }
 
   try {
+
+    await abrirDB();
+
     localStorage.setItem(CLAVE_CORREO, correo);
-  } catch {
-    mostrar('No se pudo guardar el correo.', 'error');
-    return;
-  }
 
-  document.getElementById('formulario')
-    .style.display = 'none';
+    document.getElementById('formulario')
+      .style.display = 'none';
 
-  crearRegistro(correo);
-}
+    await crearRegistro(correo);
 
-function crearRegistro(correo) {
-  const instante = new Date().toISOString();
-  const dia = fechaLocal(instante);
+  } catch (error) {
 
-  const pendientes = leer(CLAVE_PENDIENTES, []);
-  const historial = leer(CLAVE_HISTORIAL, []);
-
-  const existe = [...pendientes, ...historial]
-    .some(r => r.correo === correo &&
-      fechaLocal(r.instante) === dia);
-
-  if (existe) {
     mostrar(
-      'Tu asistencia de hoy ya fue registrada o está pendiente.',
-      'pendiente'
-    );
-    sincronizar();
-    return;
-  }
-
-  const registro = {
-    id: crypto.randomUUID(),
-    correo,
-    instante,
-    dispositivo: dispositivo()
-  };
-
-  try {
-    pendientes.push(registro);
-    guardar(CLAVE_PENDIENTES, pendientes);
-  } catch {
-    mostrar(
-      'No se pudo guardar el registro en el teléfono.',
+      'No se pudo preparar el almacenamiento del teléfono.',
       'error'
     );
-    return;
+
   }
-
-  mostrar(
-    'Asistencia guardada.\nHora del escaneo: ' +
-    new Date(instante).toLocaleTimeString('es-MX') +
-    '\nSe enviará cuando haya conexión.',
-    'pendiente'
-  );
-
-  sincronizar();
 }
 
+
+// ================================================
+// CREAR REGISTRO AL ABRIR EL NFC
+// ================================================
+
+async function crearRegistro(correo) {
+
+  try {
+
+    // La hora se captura inmediatamente.
+    const instante = new Date().toISOString();
+
+    const dia = fechaLocal(instante);
+
+    const pendientes = await obtenerTodos('pendientes');
+    const historial = await obtenerTodos('historial');
+
+    const existe = [...pendientes, ...historial]
+      .some(registro =>
+        registro.correo === correo &&
+        fechaLocal(registro.instante) === dia
+      );
+
+    if (existe) {
+
+      mostrar(
+        'Tu asistencia de hoy ya fue registrada o está pendiente.',
+        'pendiente'
+      );
+
+      await sincronizar();
+      return;
+    }
+
+    const registro = {
+      id: crypto.randomUUID(),
+      correo: correo,
+      instante: instante,
+      dispositivo: dispositivo()
+    };
+
+    // Guardar antes de intentar conectarse.
+    await guardarPendiente(registro);
+
+    mostrar(
+      '¡ESCANEO REGISTRADO!\n\n' +
+      'Correo: ' + correo + '\n' +
+      'Fecha: ' + dia + '\n' +
+      'Hora del escaneo: ' + horaLocal(instante) +
+      '\n\n' +
+      (navigator.onLine
+        ? 'Enviando asistencia...'
+        : 'Guardado sin internet. Se enviará al reconectarse.'),
+      'pendiente'
+    );
+
+    actualizarEstado();
+
+    if (navigator.onLine) {
+      await sincronizar();
+    }
+
+  } catch (error) {
+
+    mostrar(
+      'No se pudo guardar la asistencia localmente. ' +
+      'No cierres la página e intenta nuevamente.',
+      'error'
+    );
+
+  }
+}
+
+
+// ================================================
+// ENVIAR REGISTRO A GOOGLE SHEETS
+// ================================================
+
 function enviarRegistro(registro) {
+
   return new Promise((resolve, reject) => {
+
     const callback = 'cuyRespuesta_' +
       Math.random().toString(36).slice(2);
 
     const script = document.createElement('script');
+
     let terminado = false;
 
-    const limpiar = () => {
+    let timeout;
+
+    function limpiar() {
+
       delete window[callback];
+
       script.remove();
+
       clearTimeout(timeout);
-    };
+    }
 
     window[callback] = respuesta => {
+
       if (terminado) return;
+
       terminado = true;
+
       limpiar();
+
       resolve(respuesta);
     };
 
     const parametros = new URLSearchParams({
+
       accion: 'registrar',
-      callback,
+
+      callback: callback,
+
       id: registro.id,
+
       correo: registro.correo,
+
       instante: registro.instante,
+
       dispositivo: registro.dispositivo,
+
       _: String(Date.now())
+
     });
 
-    script.src = SCRIPT_URL + '?' + parametros;
+    script.src = SCRIPT_URL + '?' + parametros.toString();
 
     script.onerror = () => {
+
       if (terminado) return;
+
       terminado = true;
+
       limpiar();
-      reject(new Error('Sin conexión'));
+
+      reject(new Error('Error de conexión.'));
     };
 
-    const timeout = setTimeout(() => {
+    timeout = setTimeout(() => {
+
       if (terminado) return;
+
       terminado = true;
+
       limpiar();
-      reject(new Error('Tiempo agotado'));
+
+      reject(new Error('Tiempo de espera agotado.'));
+
     }, 20000);
 
     document.head.appendChild(script);
+
   });
 }
 
-async function sincronizar() {
-  if (sincronizando || !navigator.onLine) return;
 
-  if (!SCRIPT_URL.startsWith('https://')) {
-    mostrar('Configura la URL de Apps Script.', 'error');
+// ================================================
+// SINCRONIZAR PENDIENTES AUTOMÁTICAMENTE
+// ================================================
+
+async function sincronizar() {
+
+  if (sincronizando || !navigator.onLine || !db) {
     return;
   }
 
   sincronizando = true;
 
   try {
-    const lista = leer(CLAVE_PENDIENTES, []);
 
-    for (const registro of lista) {
+    const pendientes = await obtenerTodos('pendientes');
+
+    for (const registro of pendientes) {
+
+      if (!navigator.onLine) break;
+
       let respuesta;
 
       try {
+
         respuesta = await enviarRegistro(registro);
-      } catch {
+
+      } catch (error) {
+
         break;
       }
 
@@ -330,86 +576,172 @@ async function sincronizar() {
         respuesta.estado === 'exito' ||
         respuesta.estado === 'duplicado'
       ) {
-        // Guardar primero el acuse local.
-        const historial = leer(CLAVE_HISTORIAL, []);
-        if (!historial.some(r => r.id === registro.id)) {
-          historial.push(registro);
-          guardar(CLAVE_HISTORIAL, historial);
-        }
 
-        const restantes = leer(CLAVE_PENDIENTES, [])
-          .filter(r => r.id !== registro.id);
-
-        guardar(CLAVE_PENDIENTES, restantes);
+        // Mover el registro en una sola transacción.
+        await moverAHistorial(registro);
 
         mostrar(
           respuesta.estado === 'exito'
-            ? '¡ASISTENCIA REGISTRADA!\nFecha: ' +
-              respuesta.fecha + '\nHora: ' + respuesta.hora
-            : 'Tu asistencia ya estaba registrada.',
+            ? '¡ASISTENCIA REGISTRADA EN CUY!\n\n' +
+              'Correo: ' + respuesta.correo + '\n' +
+              'Fecha: ' + respuesta.fecha + '\n' +
+              'Hora original: ' + respuesta.hora
+            : 'Tu asistencia ya estaba registrada en el servidor.\n' +
+              'Fecha: ' + respuesta.fecha +
+              '\nHora: ' + respuesta.hora,
           'exito'
         );
+
       } else {
+
         mostrar(
-          respuesta.mensaje || 'Error del servidor',
+          respuesta.mensaje || 'No se pudo registrar la asistencia.',
           'error'
         );
+
         break;
       }
     }
 
+  } catch (error) {
+
+    console.error(error);
+
+    mostrar(
+      'No se pudo completar la sincronización.',
+      'pendiente'
+    );
+
   } finally {
+
     sincronizando = false;
+
     actualizarEstado();
   }
 }
 
-function actualizarEstado() {
-  const total = leer(CLAVE_PENDIENTES, []).length;
 
-  document.getElementById('estado').textContent =
-    total
-      ? total + ' registro(s) pendiente(s)'
-      : 'Todos los registros sincronizados';
+// ================================================
+// ESTADO DEL SISTEMA
+// ================================================
+
+async function actualizarEstado() {
+
+  if (!db) return;
+
+  try {
+
+    const pendientes = await obtenerTodos('pendientes');
+
+    document.getElementById('estado').textContent =
+      pendientes.length
+        ? pendientes.length + ' asistencia(s) pendiente(s)'
+        : navigator.onLine
+          ? 'Todos los registros sincronizados'
+          : 'Sin conexión a internet';
+
+  } catch (error) {
+
+    console.error(error);
+  }
 }
 
+
+// ================================================
+// CAMBIAR CORREO
+// ================================================
+
 function cambiarCorreo() {
+
   if (!confirm(
-    '¿Cambiar el correo de este dispositivo?'
-  )) return;
+    '¿Quieres cambiar el correo de este dispositivo?'
+  )) {
+    return;
+  }
 
   localStorage.removeItem(CLAVE_CORREO);
+
   document.getElementById('formulario')
     .style.display = 'block';
 
   document.getElementById('correo').value = '';
-  mostrar('Ingresa el nuevo correo.', 'pendiente');
+
+  mostrar(
+    'Ingresa el nuevo correo institucional.',
+    'pendiente'
+  );
 }
 
-window.addEventListener('online', sincronizar);
 
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) sincronizar();
-});
+// ================================================
+// EVENTOS AUTOMÁTICOS
+// ================================================
 
-window.addEventListener('load', () => {
+window.addEventListener('online', () => {
+
+  sincronizar();
   actualizarEstado();
 
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js')
-      .catch(console.error);
-  }
-
-  const correo = localStorage.getItem(CLAVE_CORREO);
-
-  if (correo) {
-    document.getElementById('formulario')
-      .style.display = 'none';
-    crearRegistro(correo);
-  } else {
-    sincronizar();
-  }
 });
+
+window.addEventListener('offline', () => {
+
+  actualizarEstado();
+
+});
+
+document.addEventListener('visibilitychange', () => {
+
+  if (!document.hidden) {
+    sincronizar();
+    actualizarEstado();
+  }
+
+});
+
+
+// ================================================
+// INICIAR APLICACIÓN
+// ================================================
+
+window.addEventListener('load', async () => {
+
+  try {
+
+    await abrirDB();
+
+    if ('serviceWorker' in navigator) {
+
+      navigator.serviceWorker.register('./sw.js')
+        .catch(error => console.error(error));
+
+    }
+
+    actualizarEstado();
+
+    const correo = localStorage.getItem(CLAVE_CORREO);
+
+    if (correo) {
+
+      document.getElementById('formulario')
+        .style.display = 'none';
+
+      await crearRegistro(correo);
+
+    }
+
+  } catch (error) {
+
+    mostrar(
+      'No se pudo iniciar el almacenamiento local.',
+      'error'
+    );
+
+    console.error(error);
+  }
+
+});
+
 </script>
 </body>
 </html>
