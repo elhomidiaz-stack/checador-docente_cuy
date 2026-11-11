@@ -1,33 +1,12 @@
+
 {
-  "id": "./",
-  "name": "Checador Docente - CUY",
-  "short_name": "Checador",
-  "description": "Sistema institucional de registro de llegada docente del Colegio Universitario de Yahualica.",
-  "start_url": "./index.html",
+  "name": "Checador Escolar CUY",
+  "short_name": "Checador CUY",
+  "description": "Registro de asistencia NFC sin conexión",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "display_override": [
-    "standalone",
-    "minimal-ui"
-  ],
-  "background_color": "#f1f5f9",
-  "theme_color": "#172554",
-  "orientation": "portrait",
-  "lang": "es-MX",
-  "categories": [
-    "education",
-    "productivity"
-  ],
-  "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ]
+  "background_color": "#edf1f5",
+  "theme_color": "#176b45",
+  "lang": "es-MX"
 }
